@@ -225,14 +225,17 @@ let _dynLine=null,_dynFetched=false;
 function fetchDynamicLine(def){
  if(typeof fetch!=='function')return;
  _dynLine=null;_dynFetched=false;
- const stats={bossName:def.name,
-  bossTheme:(def.atk.find(a=>a.n)||{}).n||'combat',
-  deaths:G.deaths,grazes:PL.graze,captures:G.spellsCaptured,misses:G.spellsPlayed-G.spellsCaptured};
+ const stats={bossName:String(def.name||'').replace(/[^a-zA-Z0-9 \-']/g,'').substring(0,40),
+  bossTheme:String((def.atk.find(a=>a.n)||{}).n||'combat').replace(/[<>&"';]/g,'').substring(0,60),
+  deaths:Math.max(0,Math.min(999,G.deaths|0)),grazes:Math.max(0,Math.min(99999,PL.graze|0)),
+  captures:Math.max(0,Math.min(999,G.spellsCaptured|0)),misses:Math.max(0,Math.min(999,(G.spellsPlayed-G.spellsCaptured)|0))};
  fetch('/api/generate-dialog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(stats)})
   .then(r=>r.json())
   .then(d=>{
-   if(!d.line)return;
-   _dynLine=d.line;_dynFetched=true;
+   if(!d.line||typeof d.line!=='string')return;
+   const safe=d.line.replace(/[<>&"'\x00-\x1f\x7f]/g,'').substring(0,200);
+   if(!safe)return;
+   _dynLine=safe;_dynFetched=true;
    if(BOSS&&BOSS.dlg&&BOSS.state==='dialog'){
     for(let i=0;i<BOSS.dlg.length;i++){
      if(BOSS.dlg[i][0]==='b'){BOSS.dlg[i][1]=d.line;break;}
@@ -775,4 +778,36 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 loadAssets();
+
+/* ---- Mobile / Touch Support ---- */
+const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+let _tAct=false,_tSX=0,_tSY=0,_tPX=0,_tPY=0,_lastBombTap=0;
+if(IS_TOUCH){
+ autoFire=true;
+ document.getElementById('hint').style.display='none';
+ var cvEl=document.getElementById('cv');
+ cvEl.addEventListener('touchstart',function(e){
+  e.preventDefault();AudioSys.unlock();
+  if(G.screen==='title'){G.idleT=0;sfx('ok');G.screen='diff';return;}
+  if(G.screen!=='play'||Gdemo)return;
+  var t=e.touches[0];var r=cvEl.getBoundingClientRect();
+  var sx=(t.clientX-r.left)/r.width*W,sy=(t.clientY-r.top)/r.height*H;
+  if(sy>H*.82){
+   var now=Date.now();
+   if(now-_lastBombTap<280){useFlashBomb();}
+   else{useSpell();}
+   _lastBombTap=now;return;
+  }
+  _tAct=true;_tSX=sx;_tSY=sy;_tPX=PL.x;_tPY=PL.y;
+ },{passive:false});
+ cvEl.addEventListener('touchmove',function(e){
+  e.preventDefault();if(!_tAct)return;
+  var t=e.touches[0];var r=cvEl.getBoundingClientRect();
+  var sx=(t.clientX-r.left)/r.width*W,sy=(t.clientY-r.top)/r.height*H;
+  PL.x=Math.max(12,Math.min(W-12,_tPX+(sx-_tSX)*1.6));
+  PL.y=Math.max(12,Math.min(H-12,_tPY+(sy-_tSY)*1.6));
+ },{passive:false});
+ cvEl.addEventListener('touchend',function(e){e.preventDefault();_tAct=false;},{passive:false});
+}
+
 startBgm(999,118);

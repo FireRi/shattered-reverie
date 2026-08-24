@@ -2,14 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.groq.com; img-src 'self' data:;">
 <title>Shattered Reverie ~ Ballad of the Borderless Sky</title>
 <style>
   @font-face{font-family:'Pixel8';src:url('fonts/PressStart2P-Regular.ttf') format('truetype');font-display:swap;}
   @font-face{font-family:'VT323R';src:url('fonts/VT323-Regular.ttf') format('truetype');font-display:swap;}
-  html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}
+  html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+  canvas{image-rendering:auto;box-shadow:0 0 60px #000 inset;background:#000;touch-action:none}
+  #hint{position:fixed;left:8px;bottom:6px;color:#7a86a8;font:15px 'VT323R',monospace;user-select:none}
+  @media (min-width:768px){#hint{display:block!important}}
+  #hint{display:block}
+</style>
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
   canvas{image-rendering:pixelated;box-shadow:0 0 60px #000 inset;background:#000}
   #hint{position:fixed;left:8px;bottom:6px;color:#7a86a8;font:15px 'VT323R',monospace;user-select:none}
+  #hint{display:block}
 </style>
 </head>
 <body>
