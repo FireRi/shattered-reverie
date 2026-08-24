@@ -705,25 +705,60 @@ function playerGrazeCheck(){
 let BOSS=null;
 const PLAYER_NAME='Suzuran';
 let autoFire=false,showFps=false,fpsFrames=0,fpsTime=0,fpsVal=0,demoIdle=0,Gdemo=false,demoKeyLock=0;
+let demoTX=PL.x,demoTY=PL.y,demoCommit=0,demoFocus=false;
 function updateDemoMovement(){
  PL.focus=false;
- let bestX=PL.x,bestY=PL.y,bestScore=-1e9;
- for(let i=0;i<10;i++){
-  const a=i/10*TAU,r=i%3===0?0:55;
-  let cxp=clamp(PL.x+Math.cos(a)*r,20,W-20),cyp=clamp(PL.y+Math.sin(a)*r,40,H-30);
-  let sc=-Math.abs(cxp-W/2)*.3-(cyp<H*.55?300:0);
+ function scorePos(cx,cy){
+  let sc=0;
   for(const e of eshots){
-   const dx=e.x-cxp,dy=e.y-cyp;
-   const sp2=e.vx*e.vx+e.vy*e.vy;
-   const proj=(sp2>0)?(dx*e.vx+dy*e.vy)/Math.sqrt(sp2):0;
-   if(proj>0&&proj<90){sc-=800/(proj+10);}
-   const d2=dx*dx+dy*dy;if(d2<2500)sc-=1000;
+   const dx=e.x-cx,dy=e.y-cy;
+   const sp=Math.sqrt(e.vx*e.vx+e.vy*e.vy)||1;
+   const proj=(dx*e.vx+dy*e.vy)/sp;
+   if(proj>0&&proj<80)sc-=700/(proj+8);
+   if(dx*dx+dy*dy<2209)sc-=900;
   }
-  if(sc>bestScore){bestScore=sc;bestX=cxp;bestY=cyp;}
+  if(BOSS&&!BOSS.dying&&BOSS.atk){
+   sc-=Math.abs(cx-BOSS.x)*3;
+   if(Math.abs(cx-BOSS.x)<BOSS_HIT_R)sc+=120;
+  }
+  if(cy<H*.5)sc-=150;
+  return sc;
  }
- PL.x+=(bestX-PL.x)*.18;PL.y+=(bestY-PL.y)*.14;
- PL.tilt=((bestX>PL.x)-(bestX<PL.x))*.2;
+ demoCommit--;
+ const ddx=demoTX-PL.x,ddy=demoTY-PL.y;
+ if(demoCommit<=0||Math.sqrt(ddx*ddx+ddy*ddy)<6){
+  let bx=demoTX,by=demoTY,bs=scorePos(PL.x,PL.y);
+  for(let i=0;i<12;i++){
+   const a=i/12*TAU,r=(i%3===0)?0:(i%2===0?40:75);
+   const cx=clamp(PL.x+Math.cos(a)*r,25,W-25);
+   const cy=clamp(PL.y+Math.sin(a)*r,40,H-30);
+   const s=scorePos(cx,cy);
+   if(s>bs){bs=s;bx=cx;by=cy;}
+  }
+  for(const it of items){
+   const d2=(it.x-PL.x)*(it.x-PL.x)+(it.y-PL.y)*(it.y-PL.y);
+   if(d2<40000){
+    let bonus=(it.ground?350:150)+(it.t==='P'?100:it.t==='L'?250:it.t==='S'?200:50);
+    const s=scorePos(it.x,it.y)+bonus;
+    if(s>bs){bs=s;bx=it.x;by=it.y;}
+   }
+  }
+  demoTX=bx;demoTY=by;demoCommit=14+irnd(0,10);
+  let danger=0;
+  for(const e of eshots){
+   const dx=e.x-PL.x,dy=e.y-PL.y;
+   if(dx*dx+dy*dy<3600)danger++;
+  }
+  demoFocus=danger>=4;
+ }
+ PL.focus=demoFocus;
+ const spd=demoFocus?3.2:5.5;
+ const mvx=demoTX-PL.x,mvy=demoTY-PL.y;
+ const mdist=Math.sqrt(mvx*mvx+mvy*mvy);
+ if(mdist>3){PL.x+=mvx/mdist*Math.min(mdist,spd);PL.y+=mvy/mdist*Math.min(mdist,spd);}
+ PL.tilt=((mvx>1)-(mvx<-1))*.2;
 }
+
 const BOSS_BANTERS=['So, the intruder finally arrives.','You reek of confidence, little spark.','This sky answers to us, not you.','Heh. Keep up if you can.','Another challenger? How fleeting.'];
 const PL_BANTERS=['I was about to say the same.','Talk less. Dodge more.','Then watch closely.','Save the speech for your defeat.'];
 function defaultDialog(def){
