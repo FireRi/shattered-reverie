@@ -88,8 +88,17 @@ function beginBossFight(){
   else beginBossFight();
  });
 }
+var continues=3,G_contRoute=0,G_contBoss=0;
+function continueFromBoss(){
+ BOSS=null;resetFieldSafe();G.monoRay=null;
+ resetPlayer(true);PL.inv=180;PL.power=Math.max(PL.power,300);
+ G.routeQueue=[G_contRoute];G.routeIdx=0;G.bossIdx=G_contBoss;
+ G.bannerText='CONTINUE';G.bannerT=80;G.screen='play';
+ startBgm(ROUTES[G_contRoute].seed*77+13,140);
+}
 function onGameOver(){
- G.screen='gameover';G.resultT=0;stopBgm();
+ if(continues>0){continues--;G.screen='gameover';G.resultT=0;stopBgm();}
+ else{G.screen='title';BOSS=null;resetFieldSafe();stopBgm();}
 }
 function showResults(){
  G.screen='result';G.resultT=0;stopBgm();saveHi();
@@ -168,10 +177,11 @@ function updateMenus(){
      else{G.screen='title';BOSS=null;eshots.length=0;items.length=0;elasers.length=0;pshots.length=0;fx.length=0;stopBgm();}
     }
     break;
-  case 'gameover':
+ case 'gameover':
    G.resultT++;
    if(hitK(KEY.Z)||hitK(KEY.R)){sfx('ok');restartRoute();}
-   if(hitK(KEY.X)){sfx('no');G.screen='title';}
+   if(hitK(KEY.C)&&continues>0){sfx('ok');continues--;continueFromBoss();}
+   if(hitK(KEY.X)){sfx('no');G.screen='title';BOSS=null;resetFieldSafe();stopBgm();}
    break;
   case 'result':
    G.resultT++;
