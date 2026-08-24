@@ -167,28 +167,44 @@ function*souS(b){
 
 /* Mitsumo - centipede dread */
 function*mitN1(b){
- for(let c=0;c<5;c++){
-  const gx=c%2?W-90:90;
+ let k=0,spin=1;
+ while(true){
+  const gx=(k%2)?W-90:90;
   yield*b.mv(gx,rnd(85,125),36);
   for(let col=0;col<3;col++){
-   for(let i=0;i<DN(8);i++)
-    b.S({x:gx+(col-1)*26,y:b.y(),v:DV(3)+col*.5,ang:90,g:i%2?'ball:purple':'ball:green',r:5});
-   yield 26;
+   for(let i=0;i<DN(8);i++){
+    b.S({x:gx+(col-1)*26,y:b.y(),v:DV(2.6)+col*.4,ang:90,
+     g:i%2?'ball:purple':'ball:green',r:5,
+     av:spin*(14-col*3),dur:70});
+   }
+   yield 22;
   }
+  if(k%2===0){
+   const aa=b.aim();
+   b.S({x:b.x(),y:b.y(),v:DV(4.8),ang:aa,g:'kunai:green'});
+  }
+  spin*=-1;k++;
  }
 }
 function*mitS(b){
  yield*b.mv(W/2,100,50);
  let t=0;
- while(t<3500){
+ while(true){
   if(t%44===0){
-   const head={x:rnd(40,W-40),y:-16};
+   const headX=rnd(40,W-40);
+   const curve=pick([-1,1])*rnd(8,20);
    for(let i=0;i<DN(12);i++){
-    b.S({x:head.x,y:head.y-i*14,v:DV(2.7),ang:90,g:'orb:purple',r:7,
-     fn(u){u.x+=Math.sin((u.t+i*9)/17)*1.7;if(u.y>H+20)return false;}});
+    b.S({x:headX,y:-16-i*14,v:DV(2.7),ang:90,g:'orb:purple',r:7,
+     fn(u){u.x+=Math.sin((u.t+i*9)/17)*1.7;
+      if(u.t===30&&i%4===0){u.av=curve;u.dur=50;}
+      if(u.y>H+20)return false;}});
    }
   }
-  if(t%100===60)b.fan(b.x(),b.y(),DN(7),DV(4.2),42,null,'kunai:green');
+  if(t%100===60){
+   const base=b.aim();
+   for(let s=0;s<3;s++)
+    b.fan(b.x(),b.y(),DN(3),DV(3.6+s*.5),14,base+(s-1)*22,'kunai:green');
+  }
   if(t%200===150)yield*b.mv(rnd(110,W-110),100,40);
   t++;yield;
  }
@@ -249,16 +265,24 @@ function*aojS(b){
 /* Shou - slug intersections */
 function*shoN1(b){
  let k=0;
- while(k<340){
-  if(k%52===0){
-   const gy=rnd(140,260);
-   for(let i=0;i<DN(10);i++)
-    b.S({x:i*(W/DN(10))+20,y:-14,v:DV(1.7),ang:90,g:'bubble:green',r:11});
+ while(true){
+  if(k%64===0){
+   const gy=rnd(140,260),cols=DN(10);
+   for(let i=0;i<cols;i++){
+    if(i===irnd(1,cols-2))continue;
+    b.S({x:i*(W/cols)+20,y:-14,v:DV(2.2),ang:90,g:'bubble:green',r:11,
+     fn(u){if(u.y>=gy){u.vx=0;u.vy=0;u.keep=true;
+      if(u.t===0||u.fn._set!==true){u.fn._set=true;}
+      const self=u;u.fn=function(inner){if(inner.t-self.t>80){
+       fxRing(self.x,self.y,'#b0ff30',4,30,2,14);
+       for(let s=0;s<4;s++)b.S({x:self.x,y:self.y,v:DV(2.6),ang:s*90+45,g:'ball:lime',r:4});
+       return false;}return true;};return true;}}});
+   }
   }
   if(k%52===26){
    const dir=k%104===26?1:-1;
-   for(let i=0;i<DN(6);i++)
-    b.S({x:dir>0?-14:W+14,y:rnd(60,220),v:DV(5),ang:dir>0?0:180,g:'kunai:yellow'});
+   for(let i=0;i<DN(5);i++)
+    b.S({x:dir>0?-14:W+14,y:rnd(60,220),v:DV(4.4),ang:dir>0?0:180,g:'kunai:yellow'});
   }
   k++;yield;
  }
@@ -287,14 +311,23 @@ function*shoS(b){
 
 /* Tsugumi - speed racer */
 function*tsgN1(b){
- for(let d=0;d<4;d++){
-  const y=90+d*14,left=d%2===0;
+ let d=0;
+ while(true){
+  const y=90+(d%4)*14,left=d%2===0;
   yield*b.mv(left?70:W-70,y,26);
+  const dashAng=left?0:180;
   for(let v=0;v<5;v++){
    b.fan(b.x(),b.y(),DN(7),DV(5.4),40,b.aim(),'kunai:yellow');
-   b.S({x:b.x(),y:b.y(),v:DV(7),ang:left?10:170,g:'rice:yellow',keep:true});
+   /* speed-line trail: rice bullets stop mid-air, then fire at where player WAS */
+   const px=PL.x,py=PL.y;
+   b.S({x:b.x(),y:b.y(),v:DV(7),ang:left?10:170,g:'rice:yellow',keep:true,
+    fn(u){if(u.t===26){u.vx=0;u.vy=0;u.keep=true;}
+     if(u.t===44){const aa=b.aim(u.x,u.y)*Math.PI/180;u.vx=Math.cos(aa)*DV(5.2);u.vy=Math.sin(aa)*DV(5.2);u.keep=false;}
+     if(u.x<-20||u.x>W+20)return false;}});
    yield 14;
   }
+  yield 20;
+  d++;
  }
 }
 function*tsgS(b){
@@ -542,13 +575,23 @@ function*ooyS(b){
 /* Kaisen - lucky toad */
 function*kaiN1(b){
  let k=0;
- while(k<330){
+ while(true){
   if(k%46===0){
    const x0=b.x(),dir=k%92<46?1:-1;
-   for(let j=0;j<3;j++)
-    b.S({x:x0,y:b.y(),v:DV(4+j*.6),ang:60*dir+ (dir>0?20:70),g:'orb:yellow',r:8,
-     fn(u){if(u.y>H-30&&u.vy>0){u.vy*=-.72;fxRing(u.x,u.y,'#ffe060',4,30,2,14);
-      for(let i=0;i<DN(5);i++)b.S({x:u.x,y:u.y,v:DV(2.6),ang:180+i*30,g:'ball:yellow',r:4});}}});
+   for(let j=0;j<3;j++){
+     b.S({x:x0,y:b.y(),v:DV(4+j*.6),ang:60*dir+(dir>0?20:70),g:'orb:yellow',r:8,
+      fn(u){
+       let bounces=0;
+       if(u.y>H-30&&u.vy>0){
+        u.vy*=-.72;fxRing(u.x,u.y,'#ffe060',4,30,2,14);
+        for(let i=0;i<DN(5);i++)b.S({x:u.x,y:u.y,v:DV(2.6),ang:180+i*30,g:'ball:yellow',r:4});
+        u.av=dir*rnd(6,18);u.dur=999;
+        bounces++;
+        if(bounces>=3){for(let i=0;i<DN(6);i++)b.S({x:u.x,y:u.y,v:DV(2),ang:i*60+30,g:'ball:orange',r:3});return false;}
+       }
+       return true;
+      }});
+   }
   }
   k++;yield;
  }

@@ -14,22 +14,28 @@ function*hoaN1(b){
 }
 function*hoaS(b){
  yield*b.mv(W/2,104,45);
- let t=0;
- while(t<3400){
-  const ph=Math.floor(t/420)%2;
-  if(t%7===0){
-   if(ph===0){
-    b.S({x:-14,y:rnd(80,H*.75),v:DV(6.5),ang:0,g:'rice:red',r:3});
-    b.S({x:W+14,y:H*.8+rnd(-40,40),v:DV(1.8),ang:180,g:'ball:blue'});
-   }else{
-    b.S({x:W+14,y:rnd(80,H*.75),v:DV(6.5),ang:180,g:'rice:red',r:3});
-    b.S({x:-14,y:H*.8+rnd(-40,40),v:DV(1.8),ang:0,g:'ball:blue'});
+ let t=0,divX=W/2,divDir=1;
+ while(true){
+  const cyc=t%280;
+  if(cyc===0){divDir*=-1;sfx('warn');}
+  divX=clamp(divX+divDir*(1.8+(G.beat||0)*.8),80,W-80);
+  if(t%3===0){
+   const side=(Math.floor(t/3)%2)===0;
+   const sxs=side?-14:W+14;
+   for(let s=0;s<DN(3);s++){
+    b.S({x:sxs,y:rnd(60,H*.7),v:DV(6),ang:side?0:180,g:'rice:red',r:3,
+     fn(u){
+      if((divDir>0&&u.x>divX)||(divDir<0&&u.x<divX)){
+       const aa=b.aim(u.x,u.y);u.vx=Math.cos(aa*Math.PI/180)*DV(4.2);u.vy=Math.sin(aa*Math.PI/180)*DV(4.2);
+       fxSpark(u.x,u.y,'#ff5060',6);return false;}
+      return true;}});
    }
   }
-  if(t%150===0)b.fan(b.x(),b.y(),DN(9),DV(4),64,null,'orb:white',{});
+  if(t%90===45)b.fan(b.x(),b.y(),DN(8),DV(3.6),60,null,'orb:white',{});
   t++;yield;
  }
 }
+
 function*hibN1(b){
  let k=0;
  while(k<330){
