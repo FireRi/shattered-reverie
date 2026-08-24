@@ -570,6 +570,19 @@ function drawCutin(){
  cx.restore();
 }
 
+const bloomCv=document.createElement('canvas');bloomCv.width=160;bloomCv.height=120;
+const bctx=bloomCv.getContext('2d');
+function applyBloom(){
+ bctx.clearRect(0,0,160,120);
+ bctx.drawImage(cv,0,0,160,120);
+ cx.save();
+ cx.setTransform(1,0,0,1,0,0);
+ cx.globalCompositeOperation='lighter';
+ cx.globalAlpha=.35;
+ cx.imageSmoothingEnabled=true;
+ cx.drawImage(bloomCv,0,0,W,H);
+ cx.restore();
+}
 function drawScreen(){
  cx.setTransform(1,0,0,1,0,0);
  if(G.screen==='play'||G.screen==='pause'){
@@ -581,6 +594,7 @@ function drawScreen(){
    drawBoss();
   }
   cx.restore();
+  applyBloom();
   drawHUD();
   drawCutin();
   if(BOSS&&BOSS.state==='dialog')drawDialogBox();

@@ -93,7 +93,7 @@ function bossNextAttack(){
 }
 function startBossDeath(){
  BOSS.dying=1;BOSS.t=0;sfx('bossDie');shake(40,10);
- if(typeof G!=='undefined'&&G)G.freeze=Math.max(G.freeze||0,24);
+ if(typeof G!=='undefined'&&G){G.freeze=Math.max(G.freeze||0,38);screenFlash(.3,'#fff');}
  for(let i=0;i<40;i++){const a=rnd(TAU),s=rnd(1,6);fx.push({t:'p',x:BOSS.x,y:BOSS.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,c:'#fff',life:irnd(20,50),max:50});}
  for(let i=0;i<10;i++)fx.push({t:'puff',x:BOSS.x+rnd(-30,30),y:BOSS.y+rnd(-24,24),vx:rnd(-.5,.5),vy:rnd(-.8,-.3),sc:rnd(.8,1.4),life:irnd(26,44),max:44});
  for(let i=0;i<4;i++)fxSpr('fx_cannonfire',BOSS.x+rnd(-20,20),BOSS.y+rnd(-16,16),rnd(.35,.7),.9,rnd(-1.2,-.2));

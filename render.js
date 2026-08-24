@@ -324,9 +324,14 @@ function drawEntities(){
  drawPlayer();
  for(const f of fx)drawFx(f);
  for(const t of ftext){
-  cx.save();cx.globalAlpha=clamp(t.life/t.max*1.6,0,1);cx.fillStyle=t.c;
+  const p=t.life/t.max;
+  const popIn=Math.min(1,(1-p)*6+.4);
+  cx.save();
+  cx.translate(t.x,t.y);
+  cx.scale(popIn,popIn);
+  cx.globalAlpha=clamp(p*2,0,1);cx.fillStyle=t.c;
   cx.font=`bold ${t.sz}px monospace`;cx.textAlign='center';
-  cx.fillText(t.s,t.x,t.y);cx.restore();
+  cx.fillText(t.s,0,0);cx.restore();
  }
 }
 function drawFx(f){
