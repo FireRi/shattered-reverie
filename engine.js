@@ -561,8 +561,8 @@ function playerUpdate(){
  if(PL.dead){updatePlayerDeath();return;}
  updatePlayerMovement();
  handleBombInput();
-  const shooting=down(KEY.Z)||autoFire;
-  PL.shooting=shooting;
+ const shooting=Gdemo||autoFire||down(KEY.Z);
+ PL.shooting=shooting;
  if(shooting)firePlayerWeapon();
  else updateOptions(Math.floor(PL.power/100)>=2?5:3,false);
  tickMonochromeRay();
@@ -582,6 +582,7 @@ function updatePlayerDeath(){
  }else{PL.dead=2;onGameOver();}
 }
 function updatePlayerMovement(){
+ if(Gdemo){updateDemoMovement();return;}
  PL.focus=down(KEY.SHIFT);
  const sp=PL.focus?3.2:5.5;
  let dx=(down(KEY.RIGHT)?1:0)-(down(KEY.LEFT)?1:0),dy=(down(KEY.DOWN)?1:0)-(down(KEY.UP)?1:0);
@@ -703,7 +704,26 @@ function playerGrazeCheck(){
 /* ================= BOSS ================= */
 let BOSS=null;
 const PLAYER_NAME='Suzuran';
-let autoFire=false,showFps=false,fpsFrames=0,fpsTime=0,fpsVal=0;
+let autoFire=false,showFps=false,fpsFrames=0,fpsTime=0,fpsVal=0,demoIdle=0,Gdemo=false,demoKeyLock=0;
+function updateDemoMovement(){
+ PL.focus=false;
+ let bestX=PL.x,bestY=PL.y,bestScore=-1e9;
+ for(let i=0;i<10;i++){
+  const a=i/10*TAU,r=i%3===0?0:55;
+  let cxp=clamp(PL.x+Math.cos(a)*r,20,W-20),cyp=clamp(PL.y+Math.sin(a)*r,40,H-30);
+  let sc=-Math.abs(cxp-W/2)*.3-(cyp<H*.55?300:0);
+  for(const e of eshots){
+   const dx=e.x-cxp,dy=e.y-cyp;
+   const sp2=e.vx*e.vx+e.vy*e.vy;
+   const proj=(sp2>0)?(dx*e.vx+dy*e.vy)/Math.sqrt(sp2):0;
+   if(proj>0&&proj<90){sc-=800/(proj+10);}
+   const d2=dx*dx+dy*dy;if(d2<2500)sc-=1000;
+  }
+  if(sc>bestScore){bestScore=sc;bestX=cxp;bestY=cyp;}
+ }
+ PL.x+=(bestX-PL.x)*.18;PL.y+=(bestY-PL.y)*.14;
+ PL.tilt=((bestX>PL.x)-(bestX<PL.x))*.2;
+}
 const BOSS_BANTERS=['So, the intruder finally arrives.','You reek of confidence, little spark.','This sky answers to us, not you.','Heh. Keep up if you can.','Another challenger? How fleeting.'];
 const PL_BANTERS=['I was about to say the same.','Talk less. Dodge more.','Then watch closely.','Save the speech for your defeat.'];
 function defaultDialog(def){
