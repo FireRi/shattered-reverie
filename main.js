@@ -201,13 +201,15 @@ try{if(localStorage.getItem('lasr_mute')==='1')AudioSys.muted=true;}catch(e){}
 /* ---------- background & render ---------- */
 let bgGrad=null,bgKey='';
 function startDemo(){
- Gdemo=true;G.screen='play';G.routeQueue=[0];G.routeIdx=0;G.bossIdx=0;
+ const ri=irnd(0,ROUTES.length-1);
+ Gdemo=true;G.screen='play';G.routeQueue=[ri];G.routeIdx=0;G.bossIdx=0;
  G.score=0;G.dispScore=0;G.spellsPlayed=0;G.spellsCaptured=0;G.deaths=0;
  G.od=0;G.trance=0;G.streak=0;G.bestStreak=0;G.streakMult=1;G.sparksGot=0;G.spellHist=[];
- resetPlayer(true);PL.power=300;bgTint=ROUTES[0].tint;bgMode='';
- G.bannerText=ROUTES[0].title.toUpperCase();G.bannerT=80;
- if(typeof fetch==='function')fetchDynamicLine(BOSS_DEFS[ROUTES[0].bosses[0]]);
- startBgm(ROUTES[0].seed*77+13,140);
+ resetPlayer(true);PL.power=300;
+ const R=ROUTES[ri];bgTint=R.tint;bgMode=R.mode||'';
+ G.bannerText=R.title.toUpperCase();G.bannerT=80;
+ if(typeof fetch==='function')fetchDynamicLine(BOSS_DEFS[R.bosses[0]]);
+ startBgm(R.seed*77+13,140);
 }
 function endDemo(){
  Gdemo=false;G.screen='title';G.idleT=0;

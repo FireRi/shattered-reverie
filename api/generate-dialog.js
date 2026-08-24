@@ -4,6 +4,25 @@
 
 export const config = { runtime: 'edge' };
 
+const MOODS = [
+  { id: 'philosophical', hint: 'Muse about existence, boundaries, or the nature of your duel. Contemplative, not preachy.' },
+  { id: 'mocking', hint: 'Backhanded compliment or condescending observation about the player\'s performance. Witty, not cruel.' },
+  { id: 'hungry', hint: 'Genuinely excited for battle. You have been waiting for someone worth fighting.' },
+  { id: 'melancholic', hint: 'Wistful reluctance. You fight because you must, not because you want to. Beautiful sadness.' },
+  { id: 'witty', hint: 'Dry humor, wordplay, or an unexpected observation that catches the player off guard.' },
+  { id: 'menacing', hint: 'Quiet, understated threat. Fewer words. The silence between them is the danger.' },
+  { id: 'theatrical', hint: 'Grandiose declaration. You are performing for an audience of stars.' },
+];
+
+const EXAMPLES = `
+Examples of good lines (vary your style like these):
+- "You graze the storm but fear the rain. Curious."
+- "I counted your deaths on one hand. I have fingers to spare."
+- "Every bullet I fire is a question. Your movement is the answer."
+- "The border between us thins with each passing moment."
+- "Finally. Someone who doesn't apologize before dying."
+`;
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'POST only' }), { status: 405 });
@@ -18,23 +37,30 @@ export default async function handler(req) {
     const body = await req.json();
     const { bossName, bossTheme, deaths, grazes, captures, misses } = body;
 
-    const perfNote = deaths > 2
-      ? 'The player has died many times. The boss is amused but slightly bored.'
-      : captures > misses
-        ? 'The player is doing well. The boss is impressed but hiding it.'
-        : 'The fight is evenly matched so far.';
+    // Deterministic mood selection from request data so same context gives same vibe
+    const seed = (deaths * 7 + grazes * 13 + captures * 31 + misses * 3) % MOODS.length;
+    const mood = MOODS[seed];
 
-    const prompt = `You write one taunting pre-battle line for a bullet hell boss character.
-Boss name: ${bossName}
-Boss personality/theme: ${bossTheme}
-Context: ${perfNote}
-Player stats: ${grazes} grazes, ${captures} spell captures, ${deaths} deaths, ${misses} timeouts.
+    let perfContext = '';
+    if (deaths > 3) perfContext = 'This challenger has fallen repeatedly. Acknowledge it without cruelty.';
+    else if (deaths > 0) perfContext = 'This challenger has died at least once but keeps returning.';
+    else if (captures > misses + 2) perfContext = 'This challenger is capturing spells consistently. Respect is growing.';
+    else if (grazes > 300) perfContext = 'This challenger grazes everything. They live dangerously.';
+    else perfContext = 'The outcome is uncertain. Both fighters are testing each other.';
 
+    const systemPrompt = `You are writing ONE line of pre-battle dialogue for a bullet hell boss.
+
+Character: ${bossName}
+Theme: ${bossTheme}
+Current mood direction: ${mood.hint}
+Player context: ${perfContext}
+${EXAMPLES}
 Rules:
-- Exactly ONE line of dialogue, max 25 words.
-- Confident, slightly menacing, poetic. No emoji. No quotation marks.
-- Reference the player's performance subtly if relevant.
-- Output ONLY the dialogue text, nothing else.`;
+- Exactly ONE line. Max 25 words. One sentence preferred.
+- Stay in character as ${bossName}. Never break the fourth wall.
+- No emoji, no quotation marks, no action descriptions (*smiles*, etc).
+- Reference the player's stats ONLY if it feels natural, never list numbers.
+- Output ONLY the dialogue text.`;
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -44,9 +70,12 @@ Rules:
       },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 60,
-        temperature: 0.9,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Write the boss\'s opening line.' }
+        ],
+        max_tokens: 80,
+        temperature: 1.15,
       }),
     });
 
@@ -60,7 +89,7 @@ Rules:
       return new Response(JSON.stringify({ error: 'empty' }), { status: 200 });
     }
 
-    return new Response(JSON.stringify({ line: text }), { status: 200 });
+    return new Response(JSON.stringify({ line: text, mood: mood.id }), { status: 200 });
   } catch (e) {
     return new Response(JSON.stringify({ error: 'server' }), { status: 200 });
   }
