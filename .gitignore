@@ -1,0 +1,33 @@
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+*.swp
+*~
+.vscode/
+.idea/
+
+# Test/dev artifacts
+_smoke.js
+_cells.ps1
+_map.ps1
+_slice.ps1
+_split.ps1
+_merge.ps1
+_gridtest.ps1
+_rename.js
+_rename2.js
+_dbg*.js
+_smoke_dbg.js
+
+# Env/secrets
+.env
+.env.local
+
+# Node (if ever added)
+node_modules/
+
+# Large game rars (should never be committed)
+*.rar

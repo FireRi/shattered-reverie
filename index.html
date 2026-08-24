@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shattered Reverie ~ Ballad of the Borderless Sky</title>
+<style>
+  @font-face{font-family:'Pixel8';src:url('fonts/PressStart2P-Regular.ttf') format('truetype');font-display:swap;}
+  @font-face{font-family:'VT323R';src:url('fonts/VT323-Regular.ttf') format('truetype');font-display:swap;}
+  html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{image-rendering:pixelated;box-shadow:0 0 60px #000 inset;background:#000}
+  #hint{position:fixed;left:8px;bottom:6px;color:#7a86a8;font:15px 'VT323R',monospace;user-select:none}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv" width="640" height="480"></canvas></div>
+<div id="hint">Arrows move | Shift focus | Z shoot | C spell | X flash bomb | Graze → OVERDRIVE | Esc pause | R retry | M mute</div>
+<script src="engine.js"></script>
+<script src="patterns.js"></script>
+<script src="p4.js"></script>
+<script src="p5.js"></script>
+<script src="p6.js"></script>
+<script src="pex.js"></script>
+<script src="pexa.js"></script>
+<script src="main.js"></script>
+<script>
+function fit(){const c=document.getElementById('cv');const s=Math.min(innerWidth/640,innerHeight/480);c.style.width=(640*s|0)+'px';c.style.height=(480*s|0)+'px';}
+addEventListener('resize',fit);fit();
+</script>
+</body>
+</html>
