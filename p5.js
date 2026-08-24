@@ -120,16 +120,32 @@ function*sanS(b){
 }
 function*parN1(b){
  let k=0;
- while(k<330){
-  if(k%70===0){
+ while(true){
+  if(k%90===0){
    screenFlash(.14,'#fff');sfx('graze');
-   for(let i=0;i<DN(16);i++)
-    b.S({x:b.x(),y:b.y(),v:DV(rnd(2,5)),ang:i*360/DN(16)+rnd(8),g:'crystal:white',r:5,
-     fn(u){u.vy+=.015;u.vx*=.995;}});
+   const fx_=rnd(80,W-80),fy=rnd(60,H*.5),grid=DN(4);
+   for(let gx=0;gx<grid;gx++)for(let gy=0;gy<grid;gy++){
+    const px=fx_+(gx-(grid-1)/2)*22,py=fy+(gy-(grid-1)/2)*22;
+    b.S({x:px,y:py,v:DV(.05),ang:0,g:'crystal:white',r:5,
+     fn(u){
+      if(u.t===50){
+       const aa=b.aim(u.x,u.y)*Math.PI/180;
+       u.vx=Math.cos(aa)*DV(4.8)+(gx-(grid-1)/2)*.4;
+       u.vy=Math.sin(aa)*DV(4.8)+(gy-(grid-1)/2)*.4;
+       fxSpark(u.x,u.y,'#fff',8);
+      }
+      if(u.t>50)u.vy+=.02;
+     }});
+   }
+   yield 30;
+   for(let i=0;i<DN(8);i++)
+    b.S({x:b.x(),y:b.y(),v:DV(rnd(2,4)),ang:i*360/DN(8)+rnd(8),g:'crystal:white',r:5,
+     fn(u){u.vy+=.015;}});
   }
   if(k%140===100)yield*b.mv(rnd(120,W-120),100,40);
   k++;yield;
  }
+
 }
 function*parS(b){
  yield*b.mv(W/2,98,45);

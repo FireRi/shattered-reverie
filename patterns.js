@@ -130,18 +130,28 @@ function*junS(b){
 
 /* Souko - sealed blossoms */
 function*souN1(b){
- let a=rnd(360),k=0;
+ let a=rnd(360),k=0,bloom=0,bloomR=0;
  while(true){
-  if(k%6===0){
-   a+=13;
-   for(let i=0;i<2;i++){
-    const ang=a+i*180;
-    sgShot(b,b.x(),b.y(),ang,'star:pink',DV(2.4),DV(3.6),30,5);
+  if(bloom>0){
+   bloom--;bloomR+=3;
+   if(k%3===0)for(let i=0;i<DN(5);i++){
+    const aa=a+i*(360/DN(5));
+    b.S({x:b.x()+Math.cos(aa*Math.PI/180)*bloomR,y:b.y()+Math.sin(aa*Math.PI/180)*bloomR,v:DV(.2),ang:aa,g:'star:pink',r:5});
    }
+   if(bloom===0)b.ring(b.x(),b.y(),DN(6),DV(2.8),a,'star:pink',{r:5});
+  }else{
+   a+=24;
+   for(let i=0;i<DN(4);i++){
+    const ang=a+i*90;
+    b.S({x:b.x(),y:b.y(),v:DV(1.2),ang,g:'star:pink',r:5,
+     fn(u){if(u.t===18){u.av=((u.seed||i)%2?-1:1)*8;u.dur=40;}return true;},seed:i});
+   }
+   if(k%3===0)bloom=14;
   }
   if(k%160===80)yield*b.mv(rnd(120,W-120),95,40);
   k++;yield;
  }
+
 }
 function*souS(b){
  yield*b.mv(W/2,105,45);

@@ -138,13 +138,18 @@ function*shiS(b){
  }
 }
 function*mtoN1(b){
- let k=0;
- while(k<330){
-  if(k%4===0)
-   b.S({x:b.x(),y:b.y(),v:DV(3.6),ang:b.aim()+Math.sin(k/7)*34,g:'ball:red',r:4});
-  if(k%150===120)b.ring(b.x(),b.y(),DN(14),DV(2.6),rnd(360),'kunai:red');
+ let k=0,pumpCycle=0;
+ while(true){
+  pumpCycle=k%70;
+  if(pumpCycle<4||(pumpCycle>10&&pumpCycle<14)){
+   b.S({x:b.x(),y:b.y(),v:DV(3.8),ang:b.aim()+Math.sin(k/7)*28,g:'ball:red',r:4});
+  }
+  if(pumpCycle===35)b.ring(b.x(),b.y(),DN(10),DV(2.2),k*13,'kunai:red');
+  if(k%5===0)b.S({x:b.x()+rnd(-20,20),y:b.y(),v:DV(2),ang:90+rnd(-15,15),g:'rice:red',r:3,
+   fn(u){u.x+=Math.sin(u.t/11)*1.2;}});
   k++;yield;
  }
+
 }
 function*mtoS(b){
  yield*b.mv(W/2,98,45);
