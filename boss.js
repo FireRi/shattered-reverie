@@ -18,6 +18,8 @@ function updateDemoMovement(){
   if(BOSS&&!BOSS.dying&&BOSS.atk){
    sc-=Math.abs(cx-BOSS.x)*3;
    if(Math.abs(cx-BOSS.x)<BOSS_HIT_R)sc+=120;
+   const bdx2=(cx-BOSS.x)*(cx-BOSS.x)+(cy-BOSS.y)*(cy-BOSS.y);
+   if(bdx2<3600)sc-=2000;
   }
   if(cy<H*.5)sc-=150;
   return sc;

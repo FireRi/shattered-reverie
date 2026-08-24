@@ -176,7 +176,8 @@ function updateMenus(){
   case 'result':
    G.resultT++;
    if(G.resultT>90&&(hitK(KEY.Z)||hitK(KEY.ENTER))){
-    sfx('ok');G.screen='title';G.selFlags=new Array(ROUTES.length).fill(false);
+    sfx('ok');G.screen='title';var _isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+ G.selFlags=new Array(ROUTES.length).fill(_isTouch);
     startBgm(999,120);
    }
    break;

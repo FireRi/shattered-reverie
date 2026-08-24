@@ -162,7 +162,7 @@ function activateTrance(){
 }
 function playerGrazeCheck(){
  grazeTick++;
- if(PL.inv<=0&&!PL.dead&&BOSS&&!BOSS.dying&&BOSS.state!=='enter'&&dist(PL.x,PL.y,BOSS.x,BOSS.y)<BOSS_HIT_R+4){
+ if(PL.inv<=0&&!PL.dead&&BOSS&&!BOSS.dying&&BOSS.state!=='enter'&&Math.abs(PL.x-BOSS.x)<34&&Math.abs(PL.y-BOSS.y)<34){
   killPlayer();return;
  }
  for(const b of eshots){
