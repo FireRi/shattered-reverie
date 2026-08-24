@@ -780,34 +780,12 @@ requestAnimationFrame(frame);
 loadAssets();
 
 /* ---- Mobile / Touch Support ---- */
-const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
-let _tAct=false,_tSX=0,_tSY=0,_tPX=0,_tPY=0,_lastBombTap=0;
-if(IS_TOUCH){
+/* Touch handlers registered in index.html inline script.
+   This block handles device detection + auto-fire setup only. */
+if(('ontouchstart' in window)||navigator.maxTouchPoints>0){
  autoFire=true;
- document.getElementById('hint').style.display='none';
- var cvEl=document.getElementById('cv');
- cvEl.addEventListener('touchstart',function(e){
-  e.preventDefault();AudioSys.unlock();
-  if(G.screen==='title'){G.idleT=0;sfx('ok');G.screen='diff';return;}
-  if(G.screen!=='play'||Gdemo)return;
-  var t=e.touches[0];var r=cvEl.getBoundingClientRect();
-  var sx=(t.clientX-r.left)/r.width*W,sy=(t.clientY-r.top)/r.height*H;
-  if(sy>H*.82){
-   var now=Date.now();
-   if(now-_lastBombTap<280){useFlashBomb();}
-   else{useSpell();}
-   _lastBombTap=now;return;
-  }
-  _tAct=true;_tSX=sx;_tSY=sy;_tPX=PL.x;_tPY=PL.y;
- },{passive:false});
- cvEl.addEventListener('touchmove',function(e){
-  e.preventDefault();if(!_tAct)return;
-  var t=e.touches[0];var r=cvEl.getBoundingClientRect();
-  var sx=(t.clientX-r.left)/r.width*W,sy=(t.clientY-r.top)/r.height*H;
-  PL.x=Math.max(12,Math.min(W-12,_tPX+(sx-_tSX)*1.6));
-  PL.y=Math.max(12,Math.min(H-12,_tPY+(sy-_tSY)*1.6));
- },{passive:false});
- cvEl.addEventListener('touchend',function(e){e.preventDefault();_tAct=false;},{passive:false});
+ var _hintEl=document.getElementById('hint');
+ if(_hintEl)_hintEl.style.display='none';
 }
 
 startBgm(999,118);
