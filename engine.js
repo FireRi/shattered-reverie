@@ -21,9 +21,9 @@ addEventListener('keyup',e=>{keys[e.keyCode]=false;});
 const down=k=>!!keys[k],hitK=k=>{if(edge[k]){edge[k]=false;return true}return false};
 function clearEdges(){for(const k in edge)edge[k]=false;}
 
-const DIFFS=['Easy','Original','Absurdly All-Star'];
+const DIFFS=['Easy','Original','Absurdly All-Star','1CC'];
 let DIFF=1;
-const DSCAL=[{c:.65,s:.85,hp:.75},{c:1,s:1,hp:1},{c:2.2,s:1.28,hp:1.15}];
+const DSCAL=[{c:.65,s:.85,hp:.75},{c:1,s:1,hp:1},{c:2.2,s:1.28,hp:1.15},{c:1,s:1,hp:1}];
 const DN=n=>Math.max(2,Math.round(n*DSCAL[DIFF].c));
 const DV=v=>v*DSCAL[DIFF].s;
 

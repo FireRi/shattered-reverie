@@ -1,10 +1,10 @@
 "use strict";
-const G={score:0,hi:0,dispScore:0,spellsPlayed:0,spellsCaptured:0,deaths:0,hits:0,
+ const G={score:0,hi:0,dispScore:0,spellsPlayed:0,spellsCaptured:0,deaths:0,hits:0,
  routeQueue:[],routeIdx:0,bossIdx:0,screen:'title',frame:0,freeze:0,spellBombUsed:false,lastBonusLost:false,
  selFlags:new Array(ROUTES.length).fill(false),selCursor:0,diffCursor:1,pauseCursor:0,
  bannerT:0,bannerText:'',monoRay:null,resultT:0,livesPulse:0,
  od:0,odMax:80,trance:0,streak:0,bestStreak:0,streakMult:1,sparksGot:0,
- spellHist:[],beat:0,dim:0};
+ spellHist:[],beat:0,dim:0,oneCC:false,creditsUsed:0};
 try{G.hi=parseInt(localStorage.getItem('lasr_hi')||'0')||0;
  const d=parseInt(localStorage.getItem('lasr_diff')||'1');if(d>=0&&d<=2)DIFF=d;}catch(e){}
 
@@ -56,6 +56,8 @@ function startRun(){
  if(!G.routeQueue.length)return;
  G.routeIdx=-1;G.bossIdx=0;G.score=0;G.dispScore=0;G.spellsPlayed=0;G.spellsCaptured=0;G.deaths=0;
  G.od=0;G.trance=0;G.streak=0;G.bestStreak=0;G.streakMult=1;G.sparksGot=0;G.spellHist=[];
+ G.creditsUsed=0;
+ G_coins=G.oneCC?1:3;
  resetPlayer(true);PL.power=300;
  nextRoute();
 }
@@ -88,7 +90,7 @@ function beginBossFight(){
   else beginBossFight();
  });
 }
-var continues=3,G_contRoute=0,G_contBoss=0;
+var G_coins=3,G_contRoute=0,G_contBoss=0;
 function continueFromBoss(){
  BOSS=null;resetFieldSafe();G.monoRay=null;
  resetPlayer(true);PL.inv=180;PL.power=Math.max(PL.power,300);
@@ -97,7 +99,7 @@ function continueFromBoss(){
  startBgm(ROUTES[G_contRoute].seed*77+13,140);
 }
 function onGameOver(){
- if(continues>0){continues--;G.screen='gameover';G.resultT=0;stopBgm();}
+ if(G_coins>0){G_coins--;G.creditsUsed=(G.creditsUsed||0)+1;G.screen='gameover';G.resultT=0;stopBgm();}
  else{G.screen='title';BOSS=null;resetFieldSafe();stopBgm();}
 }
 function showResults(){
@@ -149,10 +151,13 @@ function updateMenus(){
    if(G.idleT>900&&!Gdemo){startDemo();break;}
    if(hitK(KEY.Z)||hitK(KEY.ENTER)){sfx('ok');G.screen='diff';}
    break;
-  case 'diff':
-   G.diffCursor=menuNav(3,G.diffCursor);
-   if(hitK(KEY.Z)){DIFF=G.diffCursor;sfx('ok');G.screen='sel';}
-   break;
+   case 'diff':
+    G.diffCursor=menuNav(4,G.diffCursor);
+    if(hitK(KEY.Z)){sfx('ok');
+     if(G.diffCursor===3){DIFF=1;G.oneCC=true;}
+     else{DIFF=G.diffCursor;G.oneCC=false;}
+     G.screen='sel';}
+    break;
   case 'sel':{
    const n=ROUTES.length+2;
    G.selCursor=menuNav(n,G.selCursor);
@@ -178,11 +183,11 @@ function updateMenus(){
     }
     break;
  case 'gameover':
-   G.resultT++;
-   if(hitK(KEY.Z)||hitK(KEY.R)){sfx('ok');restartRoute();}
-   if(hitK(KEY.C)&&continues>0){sfx('ok');continues--;continueFromBoss();}
-   if(hitK(KEY.X)){sfx('no');G.screen='title';BOSS=null;resetFieldSafe();stopBgm();}
-   break;
+    G.resultT++;
+    if(hitK(KEY.Z)||hitK(KEY.R)){sfx('ok');restartRoute();}
+    if(hitK(KEY.C)&&G_coins>0){sfx('ok');continueFromBoss();}
+    if(hitK(KEY.X)){sfx('no');G.screen='title';BOSS=null;resetFieldSafe();stopBgm();}
+    break;
   case 'result':
    G.resultT++;
    if(G.resultT>90&&(hitK(KEY.Z)||hitK(KEY.ENTER))){
@@ -459,19 +464,25 @@ function drawHUD(){
    cx.fillStyle='#ffd700';cx.beginPath();
    cx.moveTo(20+i*18,ly);cx.lineTo(26+i*18,ly+11);cx.lineTo(14+i*18,ly+11);
    cx.closePath();cx.fill();
+   }
   }
- }
- ly+=22;
- if(bombGem){
-  for(let i=0;i<clamp(PL.spells,0,4);i++)
-   cx.drawImage(bombGem,12+i*18,ly-4,15,15);
- }else{
-  for(let i=0;i<clamp(PL.spells,0,4);i++){
-   const sx=18+i*18;
-   cx.fillStyle='#7fdfff';cx.fillRect(sx-5,ly,10,10);
-   cx.fillRect(sx-2,ly-3,4,16);
+  ly+=22;
+  if(G.oneCC||G_coins<3){
+   cx.fillStyle='#ffd700';cx.font='bold 11px monospace';cx.textAlign='left';
+   cx.fillText('CREDIT ×'+G_coins,14,ly-2);
+   if(G.creditsUsed>0){cx.fillStyle='#f88';cx.fillText('  USED '+G.creditsUsed,110,ly-2);}
+   ly+=18;
   }
- }
+  if(bombGem){
+   for(let i=0;i<clamp(PL.spells,0,4);i++)
+    cx.drawImage(bombGem,12+i*18,ly-4,15,15);
+  }else{
+   for(let i=0;i<clamp(PL.spells,0,4);i++){
+    const sx=18+i*18;
+    cx.fillStyle='#7fdfff';cx.fillRect(sx-5,ly,10,10);
+    cx.fillRect(sx-2,ly-3,4,16);
+   }
+  }
  const pw=(PL.power/500)*90;
  cx.fillStyle='#333';cx.fillRect(14,ly+2,92,10);
  cx.fillStyle='#ff5060';cx.fillRect(14,ly+2,pw,10);
@@ -578,7 +589,7 @@ function applyBloom(){
  cx.save();
  cx.setTransform(1,0,0,1,0,0);
  cx.globalCompositeOperation='lighter';
- cx.globalAlpha=.35;
+ cx.globalAlpha=.15;
  cx.imageSmoothingEnabled=true;
  cx.drawImage(bloomCv,0,0,W,H);
  cx.restore();
@@ -604,7 +615,7 @@ function drawScreen(){
    cx.fillStyle='#fff';cx.font='bold 44px monospace';cx.textAlign='center';
    cx.fillText(G.bannerText,W/2,H/2-40);
    cx.fillStyle='#89f';cx.font='bold 16px monospace';
-   cx.fillText(DIFFS[DIFF].toUpperCase()+'  ·  '+ROUTES[G.routeQueue[G.routeIdx]].bosses.length+' BOSSES',W/2,H/2+8);
+    cx.fillText((G.oneCC?'1CC · ':'')+DIFFS[DIFF].toUpperCase()+'  ·  '+ROUTES[G.routeQueue[G.routeIdx]].bosses.length+' BOSSES',W/2,H/2+8);
    cx.restore();
   }
   if(flashA>0){cx.globalAlpha=clamp(flashA,0,1);cx.fillStyle=flashC;cx.fillRect(0,0,W,H);cx.globalAlpha=1;}
@@ -676,10 +687,10 @@ function menuFrame(title){
 function drawDiff(){
  menuFrame('SELECT DIFFICULTY');
  DIFFS.forEach((d,i)=>{
-  const sel=i===G.diffCursor,wip=i!==1?'':'';
+  const sel=i===G.diffCursor;
   cx.font='26px "VT323R",monospace';
-  cx.fillStyle=sel?'#ffd0d0':'#888';
-  cx.fillText((sel?'▶ ':'　 ')+d+(wip),W/2-40,170+i*56);
+  cx.fillStyle=sel?'#ffd0d0':i===3?'#ffd700':'#888';
+  cx.fillText((sel?'▶ ':'　 ')+d,W/2-40,170+i*56);
  });
  cx.fillStyle='#567';cx.font='bold 12px monospace';
  cx.fillText('Z confirm',W/2,H-60);
@@ -717,29 +728,43 @@ function drawPause(){
   cx.fillText((sel?'▶ ':'　 ')+s,W/2,190+i*44);
  });
  cx.textAlign='left';cx.font='18px "VT323R",monospace';cx.fillStyle='#aab';
- const st=[['Score',fmtScore(G.score)],['Graze',PL.graze],['Deaths',G.deaths],
-  ['Spells Captured',G.spellsCaptured+' / '+G.spellsPlayed],['Difficulty',DIFFS[DIFF]]];
+  const st=[['Score',fmtScore(G.score)],['Graze',PL.graze],['Deaths',G.deaths],
+   ['Spells Captured',G.spellsCaptured+' / '+G.spellsPlayed],['Difficulty',G.oneCC?'1CC ('+DIFFS[DIFF]+')':DIFFS[DIFF]]];
  st.forEach(([k,v],i)=>{cx.fillText(k+': ',60,150+i*22);cx.fillStyle='#fff';cx.fillText(String(v),200,150+i*22);cx.fillStyle='#aab';});
 }
 function drawGameover(){
  cx.fillStyle='rgba(20,0,10,.55)';cx.fillRect(0,0,W,H);
  cx.fillStyle='#f66';cx.font='bold 46px monospace';cx.textAlign='center';
- cx.fillText('GAME OVER',W/2,190);
+ cx.fillText('GAME OVER',W/2,170);
  blinkText('Z retry stage     X title',260,22);
  cx.fillStyle='#99a';cx.font='bold 15px monospace';
- cx.fillText('SCORE '+fmtScore(G.score),W/2,310);
+ cx.fillText('SCORE '+fmtScore(G.score),W/2,300);
+ if(G_coins>0){
+  cx.fillStyle='#ffd700';cx.font='bold 16px monospace';
+  cx.fillText('C — USE CREDIT ('+G_coins+' left)',W/2,330);
+ }else{
+  cx.fillStyle='#666';cx.font='bold 14px monospace';
+  cx.fillText('NO CREDITS REMAINING',W/2,330);
+ }
+ if(G.oneCC){
+  cx.fillStyle='#ff8';cx.font='bold 13px monospace';
+  cx.fillText('1CC MODE',W/2,354);
+ }
 }
 function drawResult(){
  cx.fillStyle='#fff';cx.font='bold 36px monospace';cx.textAlign='center';
  cx.fillText('RESULTS',W/2,90);
  const rows=[
-  ['Spell Cards Played',G.spellsPlayed],
-  ['Spell Cards Captured',G.spellsCaptured],
-  ['Best Capture Streak','×'+(1+Math.max(0,G.bestStreak-1)*.25).toFixed(2)+' ('+G.bestStreak+')'],
-  ['Sparks Collected',G.sparksGot],
-  ['Deaths',G.deaths],
-  ['Final Score',fmtScore(G.score)]
- ];
+   ['Spell Cards Played',G.spellsPlayed],
+   ['Spell Cards Captured',G.spellsCaptured],
+   ['Best Capture Streak','×'+(1+Math.max(0,G.bestStreak-1)*.25).toFixed(2)+' ('+G.bestStreak+')'],
+   ['Sparks Collected',G.sparksGot],
+   ['Deaths',G.deaths],
+   ['Final Score',fmtScore(G.score)]
+  ];
+ if(G.oneCC||G.creditsUsed>0){
+  rows.push(['Credits Used',G.creditsUsed||0]);
+ }
  rows.forEach(([k,v],i)=>{
   if(G.resultT<i*24+20)return;
   cx.textAlign='left';cx.fillStyle='#ccd';cx.font='25px "VT323R",monospace';
@@ -771,8 +796,14 @@ function drawResult(){
    }
    if(line.trim())cx.fillText(line.trim(),548,yy);
   }
+  if(G.resultT>200)blinkText('Z — back to title',H-70,18);
+  if(G.oneCC&&G.resultT>160){
+   const cleared=(G.creditsUsed||0)===0;
+   cx.textAlign='center';
+   cx.fillStyle=cleared?'#ffd700':'#888';cx.font='bold 15px monospace';
+   cx.fillText(cleared?'★ 1CC CLEAR ★':'1CC FAILED ('+G.creditsUsed+' credits used)',W/2,H-44);
+  }
  }
- if(G.resultT>200)blinkText('Z — back to title',H-70,18);
 }
 
 /* ---------- boot/loop ---------- */
