@@ -21,9 +21,9 @@ addEventListener('keyup',e=>{keys[e.keyCode]=false;});
 const down=k=>!!keys[k],hitK=k=>{if(edge[k]){edge[k]=false;return true}return false};
 function clearEdges(){for(const k in edge)edge[k]=false;}
 
-const DIFFS=['Easy','Original','Absurdly All-Star','1CC'];
+const DIFFS=['Easy','Original','Absurdly All-Star','1CC','Story'];
 let DIFF=1;
-const DSCAL=[{c:.65,s:.85,hp:.75},{c:1,s:1,hp:1},{c:2.2,s:1.28,hp:1.15},{c:1,s:1,hp:1}];
+const DSCAL=[{c:.65,s:.85,hp:.75},{c:1,s:1,hp:1},{c:2.2,s:1.28,hp:1.15},{c:1,s:1,hp:1},{c:1,s:1,hp:1}];
 const DN=n=>Math.max(2,Math.round(n*DSCAL[DIFF].c));
 const DV=v=>v*DSCAL[DIFF].s;
 
@@ -34,7 +34,8 @@ const COL={
  white:['#f8f8ff','#ffffff'],gray:['#a0a0b0','#d8d8e0'],black:['#30303c','#90909c'],
  lime:['#b0ff30','#e8ffc0'],brown:['#c08050','#f0d0b0']
 };
-let eshots=[],pshots=[],items=[],fx=[],ftext=[],elasers=[];
+let eshots=[],pshots=[],items=[],fx=[],ftext=[],elasers=[],mobs=[];
+function resetFieldSafe(){eshots.length=0;pshots.length=0;items.length=0;elasers.length=0;mobs.length=0;}
 let shakeT=0,shakeM=0,flashA=0,flashC='#fff';
 function shake(f,m){shakeT=Math.max(shakeT,f);shakeM=m;}
 function screenFlash(a,c='#fff'){flashA=Math.max(flashA,a);flashC=c;}
@@ -189,13 +190,17 @@ function spawnP(o){
 function pUpdate(){
  const bs=_ne();
  for(let i=pshots.length-1;i>=0;i--){const b=pshots[i];b.t++;
-  if(b.hom&&b.tgt&&!b.tgt.dying){
-   const want=Math.atan2(b.tgt.y-b.y,b.tgt.x-b.x)*180/Math.PI;
-   let cur=Math.atan2(b.vy,b.vx)*180/Math.PI;
-   let diff=((want-cur+540)%360)-180;
-   cur+=clamp(diff,-OPTION_TURN_RATE,OPTION_TURN_RATE);
-   const sp=Math.hypot(b.vx,b.vy);
-   b.vx=Math.cos(cur*Math.PI/180)*sp;b.vy=Math.sin(cur*Math.PI/180)*sp;
+  if(b.hom&&b.tgt){
+   const alive=b.tgt===bs||mobs.includes(b.tgt);
+   if(!alive){b.hom=false;b.tgt=null;}
+   else{
+    const want=Math.atan2(b.tgt.y-b.y,b.tgt.x-b.x)*180/Math.PI;
+    let cur=Math.atan2(b.vy,b.vx)*180/Math.PI;
+    let diff=((want-cur+540)%360)-180;
+    cur+=clamp(diff,-OPTION_TURN_RATE,OPTION_TURN_RATE);
+    const sp=Math.hypot(b.vx,b.vy);
+    b.vx=Math.cos(cur*Math.PI/180)*sp;b.vy=Math.sin(cur*Math.PI/180)*sp;
+   }
   }
   if(bs){
    const dx=b.x-bs.x,dy=b.y-bs.y;
@@ -205,11 +210,21 @@ function pUpdate(){
     pshots.splice(i,1);continue;
    }
   }
+  let hitMob=false;
+  for(let j=mobs.length-1;j>=0;j--){const m=mobs[j];
+   const mdx=b.x-m.x,mdy=b.y-m.y;
+   if(mdx*mdx+mdy*mdy<(m.r+4)*(m.r+4)){
+    damageMob(m,b.dmg||2);
+    fxSpark(b.x,b.y,'#fff',6);
+    hitMob=true;break;
+   }
+  }
+  if(hitMob){pshots.splice(i,1);continue;}
   b.x+=b.vx;b.y+=b.vy;
   if(b.x<-20||b.x>W+20||b.y<-40||b.y>H+20)pshots.splice(i,1);}
 }
 
-const IT={P:'#ff4040',B:'#4090ff',L:'#ff40ff',S:'#ffff40',K:'#ffd700'};
+const IT={P:'#ff4040',B:'#4090ff',L:'#ff40ff',S:'#ffff40',K:'#ffd700',O:'#40e0d0'};
 function spawnItem(t,x,y,vx=0){
  if(items.length>220)return;
  items.push({t,x,y,vx,vy:rnd(-3,-1),fall:false,t2:0});
@@ -243,6 +258,8 @@ function collect(it){
  else if(it.t==='S'){PL.spells=Math.min(4,PL.spells+1);addText(PL.x,PL.y-30,'Spell +1','#ffff60');sfx('spellget');}
  else if(it.t==='K'){G.sparksGot++;G.score+=10000;sfx('spellget');
   addText(PL.x,PL.y-30,'+10k','#ffd700',14,40);fxBurst(PL.x,PL.y,'#ffd700',8,3);}
+ else if(it.t==='O'){G.od=Math.min(G.odMax,G.od+12);PL.flash=Math.min(PL.flashMax,PL.flash+2);
+  G.score+=1500;sfx('item');addText(px,py,'OD+','#40e0d0',12,30);}
 }
 
 function addPower(v){PL.power=clamp(PL.power+v,100,500);}

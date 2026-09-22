@@ -275,6 +275,7 @@ function drawEntities(){
    }
    cx.restore();cx.lineCap='butt';}
  }
+ drawMobs();
  for(const b of eshots){
   if(b.x<-30||b.x>W+30||b.y<-30||b.y>H+30)continue;
   drawBullet(b);

@@ -20,6 +20,7 @@ function tryDeathbomb(){
  clearBullets(false);
  fxRing(PL.x,PL.y,'#fff',10,220,6,28);
  damageBossRaw(120);
+ for(const m of mobs.slice())damageMob(m,120);
  return true;
 }
 function clearBullets(toItems){
@@ -39,10 +40,11 @@ function useFlashBomb(){
  clearBullets(false);
  for(let i=0;i<3;i++)fxRing(x,y,'#fff',10+i*20,420,6,30+i*4);
  damageBossRaw(60);
+ for(const m of mobs.slice())damageMob(m,60);
 }
 function useSpell(){
- if(PL.spells<=0||PL.dead||!BOSS)return false;
- if(BOSS.spellActive&&BOSS.atk)G.spellBombUsed=true;
+ if(PL.spells<=0||PL.dead||(!BOSS&&mobs.length===0))return false;
+ if(BOSS&&BOSS.spellActive&&BOSS.atk)G.spellBombUsed=true;
  PL.spells--;G.spellUsedOwn++;PL.inv=Math.max(PL.inv,230);sfx('bomb');shake(16,5);screenFlash(.7,'#fff');
  const sx=PL.x,sy=PL.y;
  fx.push({t:'monochrome',x:sx,y:sy,life:210,max:210});
@@ -104,6 +106,11 @@ function fireMainBeam(pint){
  const bs=_ne();
  const connected=!!bs&&Math.abs(bs.x-PL.x)<BOSS_HIT_R&&bs.y<PL.y-10;
  if(connected){damageBossRaw(1.55*(PL.power/300));fxSpark(bs.x+rnd(-14,14),bs.y+18,'#bff6ff',7);}
+ for(const m of mobs){
+  if(Math.abs(m.x-PL.x)<m.r+6&&m.y<PL.y-10){
+   damageMob(m,1.55*(PL.power/300));fxSpark(m.x+rnd(-10,10),m.y+10,'#bff6ff',6);break;
+  }
+ }
  fx.push({t:'beam',x:PL.x,y:PL.y-14,life:6,max:6,w:(pint>=5?9:7)*(connected?1:.55),hit:connected});
 }
 function fireRapidShots(pint){
@@ -116,7 +123,7 @@ function fireOptionPellets(pint){
  const nOpt=pint>=2?5:3;
  updateOptions(nOpt);
  if(PL.shootT%4!==0)return;
- const tgt=_ne();
+ const tgt=_ne()||nearestMobTo(PL.x,PL.y);
  const mid=Math.floor(nOpt/2);
  for(let i=0;i<nOpt;i++){
   const o=PL.opts[i]||PL.x;
@@ -130,7 +137,7 @@ function fireOptionPellets(pint){
 function tickMonochromeRay(){
  if(!G.monoRay)return;
  G.monoRay.t++;
- if(G.monoRay.t%6===0){damageBossRaw(9);clearBullets(false);}
+ if(G.monoRay.t%6===0){damageBossRaw(9);for(const m of mobs.slice())damageMob(m,9);clearBullets(false);}
  if(G.monoRay.t>200)G.monoRay=null;
 }
 let _neC=null,_neF=-1;
@@ -164,6 +171,12 @@ function playerGrazeCheck(){
  grazeTick++;
  if(PL.inv<=0&&!PL.dead&&BOSS&&!BOSS.dying&&BOSS.state!=='enter'&&Math.abs(PL.x-BOSS.x)<34&&Math.abs(PL.y-BOSS.y)<34){
   killPlayer();return;
+ }
+ if(PL.inv<=0&&!PL.dead){
+  for(const m of mobs){
+   const mdx=m.x-PL.x,mdy=m.y-PL.y;
+   if(mdx*mdx+mdy*mdy<(m.r+PLAYER_HIT_R)*(m.r+PLAYER_HIT_R)){killPlayer();return;}
+  }
  }
  for(const b of eshots){
   const dx=b.x-PL.x,dy=b.y-PL.y,d2=dx*dx+dy*dy;
