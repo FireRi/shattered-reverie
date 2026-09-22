@@ -32,26 +32,32 @@ Every file is loaded via `<script>` tags in `index.html` in a specific order.
 ```
 index.html
   ├── engine.js      Core systems (loaded first, defines globals)
+  ├── audio.js       SFX synth + procedural music engine
+  ├── player.js      Player ship, shots, bombs, graze
+  ├── boss.js        Boss state machine + shared context API
+  ├── story.js       Story-mode trash mobs + wave control
+  ├── render.js      All canvas drawing (bullets, mobs, FX, HUD helpers)
   ├── patterns.js    Stage 1–3 boss patterns + shared helpers
   ├── p4.js          Stage 4 bosses
   ├── p5.js          Stage 5 bosses
   ├── p6.js          Stage 6 bosses
   ├── pex.js         Extra stage bosses
   ├── pexa.js        Extra+a bosses + route definitions
-  └── main.js        Game state machine, rendering, HUD, menus
+  ├── main.js        Game state machine, menus, HUD, route flow
+  └── boot.js        Canvas scaling + touch controls
 ```
 
 **Load order matters.** Each file builds on globals defined by previous files.
 The dependency chain is:
 
 ```
-engine.js  →  patterns.js  →  p4/p5/p6/pex/pexa  →  main.js
-(core)       (S1–3 data)      (more data)           (state machine)
+engine.js  →  audio/player/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  boot.js
+(core)       (systems + content helpers)           (S1–3)      (more bosses)            (state machine)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
 are callable from any later file. Shared mutable state (`G`, `PL`, `BOSS`,
-`eshots`) is defined in `engine.js` and accessed everywhere.
+`eshots`, `mobs`) is defined in `engine.js` and accessed everywhere.
 
 ---
 
@@ -67,14 +73,16 @@ The foundation layer. Contains everything that must exist before any content:
 | Config & constants | Screen dimensions, color palette, key bindings, hitbox radii |
 | Input system | Edge-triggered (`hitK`) and held (`down`) key polling, per-tick edge clearing |
 | Object pooling | `killE`/`spawnE` recycle bullet objects to reduce GC pressure |
-| Entity arrays | `eshots[]`, `pshots[]`, `items[]`, `fx[]`, `ftext[]`, `elasers[]` |
-| Audio system | Web Audio context management, SFX synthesis, sample-buffer playback |
-| Music engine | Seeded procedural chiptune sequencer with arrangement gating |
-| Player | Movement, shooting, options, graze, flash bomb, spell, trance, deathbomb |
-| Boss framework | State machine (enter→dialog→fight→rest), attack lifecycle, damage rates |
-| Item system | Spawning, magnet collection, floor expiry |
+| Entity arrays | `eshots[]`, `pshots[]`, `items[]`, `fx[]`, `ftext[]`, `elasers[]`, `mobs[]` |
+| Field reset | `resetFieldSafe()` wipes shots, items, lasers and mobs on continue / quit-to-title |
+| Player shots | `pUpdate()` tests the boss first, then every mob; dead homing targets retarget |
+| Audio system (`audio.js`) | Web Audio context management, SFX synthesis, sample-buffer playback |
+| Music engine (`audio.js`) | Seeded procedural chiptune sequencer with arrangement gating |
+| Player (`player.js`) | Movement, shooting, options, graze, flash bomb, spell, trance, deathbomb |
+| Boss framework (`boss.js`) | State machine (enter→dialog→fight→rest), attack lifecycle, damage rates |
+| Item system | Spawning, magnet collection, floor expiry (P/B/L/S/K/O — O feeds the OD meter) |
 | Laser system | Telegraphed straight-line hazards with warm-up/active/fade states |
-| Effects | Ring, spark, shard, trail, puff, crescent, bloom, beam, seigaiha overlay |
+| Effects (`render.js`) | Ring, spark, shard, trail, puff, crescent, bloom, beam, seigaiha overlay |
 
 ### patterns.js + p4–pexa.js (~1900 lines total)
 
@@ -103,10 +111,39 @@ function*myBossN1(b){
 }
 ```
 
-### main.js (~720 lines)
+### story.js (~200 lines)
+
+Story-mode trash mobs plus the wave controller. Active only when `G.story`
+is true (selected from the difficulty menu).
+
+| Piece | What it does |
+|-------|-------------|
+| Mob types | `drone` (aimed 3-way), `weaver` (wide fan), `tank` (ring + aimed kunai). Eased movement toward drifting anchors, banking tilt, HP bars. |
+| Telegraphs | Every volley flashes a ring ~25 frames early; no fire during entry or off-stage; tank rings leave a gap facing the player. |
+| Wave control | 14-mob queue (`startStoryWave` / `updateStoryWave`), max 6 alive, wave-clear bonus + boss handoff. |
+| Drops | RNG loot per kill — P (power), B (points), O (overload: +12 OD, +2 flash). Tanks drop 3. |
+| Power guarantee | A pity counter forces P drops when the remaining mobs can't cover the missing power, plus a top-up at wave clear, so the player always gains +1.0 (100) power before each boss. |
+
+Mobs plug into the existing combat: player shots, beam, homing options, spell
+ray, deathbomb and flash bomb all damage them (`damageMob` / `killMob`), and
+body contact kills the player like a boss collision.
+
+### main.js (~850 lines)
 
 Game state machine, screen renderer, HUD, menus, results screen, music-reactive
 visuals, and the requestAnimationFrame loop.
+
+The difficulty menu offers five modes: Easy, Original, Absurdly All-Star,
+1CC (Original scaling, 1 credit) and Story (Original scaling + mob waves).
+Modes are exclusive — Story and 1CC cannot be combined.
+
+Credit system: runs start with 3 coins (1 in 1CC). Dying with no lives spends
+one coin (`G.creditsUsed++`) and offers a continue; running dry sends the
+player to the title. The HUD shows `CREDIT ×N` once a coin is spent (always in
+1CC); the results screen totals credits used and awards ★ 1CC CLEAR ★.
+
+Story flow: `G.needWave` / `G.wave` interleave one mob wave before every boss —
+`beginBossFight()` fires only after the wave reports clear (see `story.js`).
 
 State machine:
 ```
@@ -224,13 +261,13 @@ expiry, never by generator exhaustion.
 
 | System | Mechanic |
 |--------|----------|
-| Shot types | Power < 3: twin rapid bolts. Power ≥ 3: continuous beam (requires vertical alignment within cone). Both always fire option pellets alongside. |
+| Shot types | Power < 3: twin rapid bolts. Power ≥ 3: continuous beam (requires vertical alignment within cone; also burns mobs in its column). Both always fire option pellets alongside. |
 | Options | 3 orbs (power < 2) or 5 orbs (power ≥ 2), orbiting when focused. Fire pellets every 4 frames. |
-| Homing | When focused (Shift), the center 2 option pellets become homing seekers (7°/frame turn rate, 50% damage). |
+| Homing | When focused (Shift), the center 2 option pellets become homing seekers (7°/frame turn rate, 50% damage). With no boss alive they lock the nearest mob instead. |
 | Graze | Bullets passing within 14px of hitbox grant +500 score, +1 flash gauge, OD meter progress. |
-| Flash Bomb | X when gauge full: clears all bullets, brief invulnerability, no bonus penalty. |
-| Spell | C key: screen-wide attack + sustained clearing ray. Costs one stock. |
-| Deathbomb | Press X/C within 16 frames of being hit: consumes a spell, cancels death. |
+| Flash Bomb | X when gauge full: clears all bullets, damages mobs, brief invulnerability, no bonus penalty. |
+| Spell | C key: screen-wide attack + sustained clearing ray. Costs one stock. Castable during story waves (no boss required). |
+| Deathbomb | Press X/C within 16 frames of being hit: consumes a spell, cancels death, damages mobs. |
 | Trance | OD meter fills from grazing while flash gauge is full. Auto-triggers: +50% damage, bullets slow near player, aura visuals. |
 | Streak | Consecutive spell captures multiply capture bonus up to ×4. Reset on timeout or death. |
 
@@ -243,6 +280,8 @@ Player hitbox: 2.6px radius (tiny, Touhou-style)
 Graze radius: 14px ring around hitbox
 Enemy bullet hit: dist² < (PLAYER_HIT_R + b.r × 0.55)²
 Boss shot collision: dist² < (BOSS_HIT_R + 3)²
+Mob shot collision: dist² < (m.r + 4)²
+Mob body contact: dist < m.r + PLAYER_HIT_R kills (like boss contact)
 Laser: point-to-segment distance < laser_width / 2 + PLAYER_HIT_R
 ```
 
@@ -295,6 +334,10 @@ Patterns should:
   formation (wheel, flower, weave, wall) not just random scatter
 - **Telegraph dangerous moments** — use `addText('!')`, `fxSpark`, or
   `screenFlash` before high-speed volleys
+- **Snapshot, don't alias, stop-times in `fn` closures** — `const self=u`
+  keeps a *live* reference, so `inner.t - self.t` is always 0 and a timed
+  burst never fires (this froze Oboro Nume's bubbles mid-screen). Capture a
+  scalar instead: `const t0=u.t` … `if(inner.t - t0 > 80)`
 
 Difficulty scaling is applied through two global functions:
 
@@ -310,7 +353,9 @@ Easy mode reduces both; Absurdly All-Star increases them.
 ```js
 DIFF_EASY = 0   // DN×0.65, DV×0.85, boss HP×0.75
 DIFF_ORIG = 1   // baseline
-DIFF_ABEX  = 2  // DN×2.2, DV×1.28, boss HP×1.15
+DIFF_ABEX = 2   // DN×2.2, DV×1.28, boss HP×1.15
+DIFF_1CC  = 3   // Original scaling, 1 credit, results track 1CC clear
+DIFF_STORY = 4  // Original scaling + pre-boss mob waves (see story.js)
 ```
 
 ---
@@ -377,11 +422,13 @@ Single canvas, redrawn from scratch every frame:
 drawScreen()
   ├── drawBG()           Gradient + parallax stars + nebula blits +
   │                      aurora ribbons + vignette + route scenic backdrop
-  ├── drawEntities()     Lasers → enemy bullets → player bullets → items →
-  │                      player → FX particles → floating text
+  ├── drawEntities()     Lasers → mobs → enemy bullets → player bullets →
+  │                      items → player → FX particles → floating text
   ├── drawBoss()         Aura rings + monogram + hurt flash + charge effect
+  ├── applyBloom()       Downscaled additive glow pass (0.15 alpha)
   ├── drawHUD()          Score, boss bar, timer, lives, spells, power,
-  │                      flash gauge, OD meter, streak, spell history
+  │                      flash gauge, OD meter, streak, spell history,
+  │                      credits, wave counter
   ├── drawCutin()        Speedlines + gradient band + letter cascade +
   │                      portrait panel (during spell declarations)
   └── Overlays           Warning banner, dialog box, screen flash, dim fade
@@ -467,6 +514,9 @@ the game through simulated input across ~60k frames. It verifies:
 - Streak increments on captures, resets on timeout
 - Route chaining produces results screen naturally
 - Music schedules dense note graph with zero out-of-key melody notes
+- Story wave clears into the boss with +1.0 power gained (pity + top-up)
+- O item pickup raises the OD meter; arcade runs spawn no wave
+- Mob bullets stay within speed caps and every volley is telegraphed
 
 Run with:
 ```
@@ -577,6 +627,10 @@ All sprite usage has vector fallbacks for headless testing.
 - **Procedural music limitations**: The seeded composer cannot produce
   structured songs (verse/chorus) — it generates evolving loops within
   harmonic constraints.
+- **Modes are exclusive**: Story and 1CC cannot be combined — Story always
+  runs at Original scaling with 3 credits.
+- **Fixed story waves**: every pre-boss wave uses the same 14-mob composition
+  (6 drones, 5 weavers, 3 tanks); only the spawn order and positions are random.
 - **No netplay**: The game is single-player only.
 - **Browser compatibility**: Requires Web Audio API and PeriodicWave support
   (all modern browsers, but not IE11).
