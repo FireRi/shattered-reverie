@@ -277,13 +277,12 @@ function*shoN1(b){
  let k=0;
  while(true){
   if(k%64===0){
-   const gy=rnd(140,260),cols=DN(10);
+   const gy=rnd(140,260),cols=DN(10),gap=irnd(1,cols-2);
    for(let i=0;i<cols;i++){
-    if(i===irnd(1,cols-2))continue;
+    if(i===gap)continue;
     b.S({x:i*(W/cols)+20,y:-14,v:DV(2.2),ang:90,g:'bubble:green',r:11,
      fn(u){if(u.y>=gy){u.vx=0;u.vy=0;u.keep=true;
-      if(u.t===0||u.fn._set!==true){u.fn._set=true;}
-      const self=u;u.fn=function(inner){if(inner.t-self.t>80){
+      const self=u,t0=u.t;u.fn=function(inner){if(inner.t-t0>80){
        fxRing(self.x,self.y,'#b0ff30',4,30,2,14);
        for(let s=0;s<4;s++)b.S({x:self.x,y:self.y,v:DV(2.6),ang:s*90+45,g:'ball:lime',r:4});
        return false;}return true;};return true;}}});
