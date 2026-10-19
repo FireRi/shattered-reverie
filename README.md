@@ -44,7 +44,7 @@ index.html
   ├── pex.js         Extra stage bosses
   ├── pexa.js        Extra+a bosses + route definitions
   ├── main.js        Game state machine, menus, HUD, route flow
-  └── boot.js        Canvas scaling + touch controls
+  └── boot.js        Canvas scaling + touch input
 ```
 
 **Load order matters.** Each file builds on globals defined by previous files.
@@ -300,6 +300,33 @@ The player's visible sprite is ~22px wide, but the hitbox is 2.6px —
 standard danmaku convention where the sprite is decorative and the hitbox
 is the true target.
 
+### 3.6 Mobile / Touch Input
+
+Touch support is detected once at load (`IS_TOUCH` in `engine.js`) from
+`navigator.maxTouchPoints` or `ontouchstart`. It does not disable the keyboard.
+
+- **Movement**: drag anywhere outside a button. Movement is relative and
+  incremental (the ship follows finger deltas at 1.7× gain), so the ship never
+  jumps under the finger.
+- **Focus**: the on-screen `FOCUS` toggle replaces Shift; while active,
+  movement speed is multiplied by 0.58 and homing applies.
+- **Buttons**: `SPELL` and `FLASH` fire the corresponding bombs; both can be
+  tapped during the 16-frame deathbomb window. `II` pauses.
+- **Auto-fire**: forced ON for touch sessions and locked in Settings
+  (`ON · TOUCH`), so no fire button is needed.
+- **Menus**: touch-specific layouts are drawn for the title, difficulty and
+  stage-select screens, pause menu, settings, help, game over, results, and
+  dialogs. Dialog boxes advance on tap. Stage select uses a 2×4 grid with
+  SELECT ALL.
+- **Hit testing**: draw functions register rectangular zones with
+  `TouchUI.add()` each frame; `boot.js` resolves touches against the last
+  drawn frame in reverse draw order, so overlays (pause during dialog,
+  confirmation buttons) take precedence. Zones reset at the start of every
+  `drawScreen()`.
+- **Orientation**: portrait phones show a rotate overlay with a
+  `PLAY IN PORTRAIT` skip. The 640×480 canvas is letterboxed and scaled to fit
+  either orientation.
+
 ---
 
 <a name="patterns"></a>
@@ -536,6 +563,15 @@ Manual regression checklist:
 - Title BGM restarts after results or quitting from pause.
 - Settings/help open from the title (S/H) and pause, and persist after reload.
 - Flash bomb fires only when the gauge is full; C always casts a spell.
+- Touch: title, difficulty, stage grid, settings, help, pause, game over, and
+  result controls all respond; drag movement does not teleport the ship.
+- Touch: focus toggle slows movement and enables homing; FOCUS survives
+  pause/resume but resets on a new run.
+- Touch: pause remains reachable during dialog; dialog advances only on a
+  non-pause tap.
+- Portrait orientation shows the rotate overlay and the skip button; landscape
+  scales the canvas to fit.
+- Auto-fire is on and locked in touch Settings.
 
 ---
 
@@ -636,6 +672,8 @@ All sprite usage has vector fallbacks for headless testing.
 - **No replay system**: The game state is not serialized, so replays would
   require recording all inputs deterministically.
 - **Fixed resolution**: 640×480 internal, scaled by CSS. No widescreen support.
+  On phones, landscape uses most of the screen; portrait is letterboxed and
+  prompts rotation, though the game remains playable if skipped.
 - **Procedural music limitations**: The seeded composer cannot produce
   structured songs (verse/chorus) — it generates evolving loops within
   harmonic constraints.

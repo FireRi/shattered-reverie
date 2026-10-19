@@ -15,6 +15,19 @@ const KEY={LEFT:37,RIGHT:39,UP:38,DOWN:40,SHIFT:16,Z:90,X:88,C:67,ESC:27,M:77,EN
 const PLAYER_HIT_R=2.6;
 const GRAZE_R=14;
 const OPTION_TURN_RATE=7;
+const IS_TOUCH=(typeof navigator!=='undefined'&&navigator.maxTouchPoints>0)||(typeof window!=='undefined'&&'ontouchstart' in window);
+const TouchUI={
+ zones:[],focus:false,moveId:null,moveSX:0,moveSY:0,movePX:0,movePY:0,
+ reset(){this.zones.length=0;},
+ add(x,y,w,h,fn,label){this.zones.push({x,y,w,h,fn,label:label||''});},
+ hit(x,y){
+  for(let i=this.zones.length-1;i>=0;i--){
+   const z=this.zones[i];
+   if(x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h){z.fn();return true;}
+  }
+  return false;
+ }
+};
 const keys={},edge={};
 addEventListener('keydown',e=>{if(!keys[e.keyCode])edge[e.keyCode]=true;keys[e.keyCode]=true;if([37,38,39,40,16,27,90,88,67].includes(e.keyCode))e.preventDefault();AudioSys.unlock();});
 addEventListener('keyup',e=>{keys[e.keyCode]=false;});

@@ -80,7 +80,7 @@ function updatePlayerDeath(){
 }
 function updatePlayerMovement(){
  if(Gdemo){updateDemoMovement();return;}
- PL.focus=down(KEY.SHIFT);
+ PL.focus=down(KEY.SHIFT)||TouchUI.focus;
  const sp=PL.focus?3.2:5.5;
  let dx=(down(KEY.RIGHT)?1:0)-(down(KEY.LEFT)?1:0),dy=(down(KEY.DOWN)?1:0)-(down(KEY.UP)?1:0);
  if(dx&&dy){dx*=.7071;dy*=.7071;}
