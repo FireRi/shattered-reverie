@@ -335,7 +335,8 @@ addEventListener('keydown',e=>{
 function autoPause(){
  for(const k in keys)keys[k]=false;
  for(const k in edge)edge[k]=false;
- TouchUI.cancelTouches();
+ if(typeof TouchPad!=='undefined'&&TouchPad.release)TouchPad.release();
+ else TouchUI.release();
  if(G.screen==='play'&&!Gdemo){G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;}
 }
 addEventListener('blur',autoPause);
@@ -536,84 +537,6 @@ function touchBtn(x,y,w,h,label,cb,opt={}){
  cx.restore();
  if(cb)TouchUI.add(x,y,w,h,cb,opt.id);
 }
-function touchCircle(x,y,r,label,sub,cb,opt={}){
- const on=opt.on!==false;
- cx.save();
- cx.beginPath();cx.arc(x,y,r,0,TAU);
- cx.fillStyle=on?'rgba(10,18,34,.74)':'rgba(10,18,34,.34)';cx.fill();
- cx.strokeStyle=on?(opt.col||'#7fdfff'):'#456';cx.lineWidth=2;cx.stroke();
- if(opt.progress!==undefined){
-  cx.beginPath();cx.arc(x,y,r-5,-Math.PI/2,-Math.PI/2+TAU*clamp(opt.progress,0,1));
-  cx.strokeStyle=on?'#fff':'#58a6ff';cx.lineWidth=4;cx.stroke();
- }
- cx.textAlign='center';cx.textBaseline='middle';
- cx.fillStyle=on?'#fff':'#777';cx.font='bold 11px monospace';
- cx.fillText(label,x,y-3);
- cx.font='bold 10px monospace';
- cx.fillStyle=on?(opt.subCol||'#9cf'):'#666';
- cx.fillText(sub,x,y+11);
- cx.restore();
- TouchUI.add(x-r,y-r,r*2,r*2,cb,opt.id);
-}
-function drawTouchPlayUI(){
- if(!IS_TOUCH||Gdemo||G.screen!=='play')return;
- const canBomb=!PL.dead&&bombsAvailable();
- const canSave=PL.dead&&PL.deathWindow>0;
- touchBtn(10,44,52,38,'II',()=>{
-  TouchUI.resetStick();G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;sfx('cur');
- },{id:'play:pause',font:'bold 15px monospace',col:'#9ab'});
- if(BOSS&&BOSS.state==='dialog')return;
- touchBtn(W-252,H-180,80,32,'FOCUS',()=>{
-  TouchUI.focus=!TouchUI.focus;sfx('cur');
- },{id:'play:focus',sub:TouchUI.focus?'ON':'OFF',active:TouchUI.focus,col:'#ffd700',font:'bold 11px monospace'});
- touchCircle(W-72,H-172,25,'SPELL',PL.dead?(canSave?'SAVE':'—'):'×'+PL.spells,()=>{
-  AudioSys.unlock();
-  if(PL.dead){if(PL.deathWindow>0)tryDeathbomb();return;}
-  if(!canBomb){sfx('no');return;}
-  if(!useSpell())sfx('no');
- },{id:'play:spell',on:PL.spells>0&&(canBomb||canSave),subCol:'#8cf'});
-}
-function ctrlCircle(o,label,sub,on,progress,col,subCol){
- cx.save();
- cx.beginPath();cx.arc(o.x,o.y,o.r,0,TAU);
- cx.fillStyle=on?'rgba(10,18,34,.72)':'rgba(10,18,34,.34)';cx.fill();
- cx.strokeStyle=on?(col||'#7fdfff'):'#456';cx.lineWidth=2;cx.stroke();
- if(progress!==undefined){
-  cx.beginPath();cx.arc(o.x,o.y,o.r-5,-Math.PI/2,-Math.PI/2+TAU*clamp(progress,0,1));
-  cx.strokeStyle=on?'#fff':'#58a6ff';cx.lineWidth=4;cx.stroke();
- }
- cx.textAlign='center';cx.textBaseline='middle';
- cx.fillStyle=on?'#fff':'#777';cx.font='bold 11px monospace';
- cx.fillText(label,o.x,o.y-3);
- cx.font='bold 10px monospace';
- cx.fillStyle=on?(subCol||'#9cf'):'#666';
- cx.fillText(sub,o.x,o.y+11);
- cx.restore();
-}
-function drawTouchController(){
- if(!TouchUI.visible())return;
- const S=TOUCH_CTRL.stick,F=TOUCH_CTRL.fire,B=TOUCH_CTRL.bomb,st=TouchUI.stick;
- cx.save();
- cx.globalAlpha=st.active?1:.82;
- cx.beginPath();cx.arc(S.x,S.y,S.r,0,TAU);
- cx.fillStyle='rgba(8,16,30,.58)';cx.fill();
- cx.strokeStyle=st.active?'#dff':'rgba(127,223,255,.68)';cx.lineWidth=2;cx.stroke();
- cx.globalAlpha=st.active?1:.72;
- cx.beginPath();cx.arc(S.x+st.kx,S.y+st.ky,S.knob,0,TAU);
- cx.fillStyle=st.active?'rgba(150,215,255,.88)':'rgba(90,140,190,.62)';cx.fill();
- cx.strokeStyle='#dff';cx.lineWidth=1.5;cx.stroke();
- cx.globalAlpha=1;
- ctrlCircle(F,'FIRE','',true,undefined,'#ff9fb0','#fcc');
- const inPlay=G.screen==='play';
- const canSave=inPlay&&PL.dead&&PL.deathWindow>0;
- const ready=inPlay&&PL.flash>=PL.flashMax;
- ctrlCircle(B,inPlay?'BOMB':'BACK',
-  inPlay?(PL.dead?(canSave?'SAVE':'—'):(ready?'READY':PL.flash+'/'+PL.flashMax)):'',
-  inPlay?(PL.dead?canSave:ready):true,
-  inPlay?PL.flash/PL.flashMax:undefined,
-  ready?'#fff':'#8fd8ff','#8cf');
- cx.restore();
-}
 function drawHUD(){
  cx.font='12px "Pixel8",monospace';cx.textAlign='right';cx.textBaseline='top';
  cx.fillStyle='#fff';
@@ -749,7 +672,7 @@ function drawHUD(){
   cx.fillText('STREAK ×'+G.streakMult.toFixed(2)+'  ('+G.streak+')',W-14,66);
  }
  if(G.spellHist.length){
-  let hx=IS_TOUCH?150:16;
+  let hx=16;
   for(const cap of G.spellHist){
    cx.fillStyle=cap?'#6f6':'#f55';
    cx.beginPath();cx.arc(hx,H-12,3.2,0,TAU);cx.fill();
@@ -850,7 +773,6 @@ function drawScreen(){
   if(!(BOSS&&BOSS.state==='dialog'))drawHUD();
   drawCutin();
   if(BOSS&&BOSS.state==='dialog')drawDialogBox();
-  if(IS_TOUCH&&G.screen==='play')drawTouchPlayUI();
   if(G.bannerT>0){
    const p=1-Math.abs(G.bannerT-65)/65;
    cx.save();cx.globalAlpha=clamp(p,0,1);
@@ -885,7 +807,7 @@ function drawScreen(){
   else if(G.screen==='settings')drawSettings();
   else if(G.screen==='help')drawHelp();
  }
- if(IS_TOUCH)drawTouchController();
+ if(typeof TouchPad!=='undefined'&&TouchPad.sync)TouchPad.sync();
 }
 
 /* ---------- screens ---------- */
@@ -1299,6 +1221,6 @@ requestAnimationFrame(frame);
 loadAssets();
 
 /* ---- Mobile / Touch Support ---- */
-/* Touch input (joystick + action buttons) lives in boot.js. */
+/* The DOM pad and canvas tap zones are wired in boot.js. */
 
 startTitleBgm();

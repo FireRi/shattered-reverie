@@ -45,7 +45,7 @@ index.html
   ├── pex.js         Extra stage bosses
   ├── pexa.js        Extra+a bosses + route definitions
   ├── main.js        Game state machine, menus, HUD, route flow
-  └── boot.js        Canvas scaling + touch input
+  └── boot.js        Viewport fitting + DOM touch pad + canvas tap zones
 ```
 
 **Load order matters.** Each file builds on globals defined by previous files.
@@ -306,33 +306,41 @@ is the true target.
 Touch support is detected once at load (`IS_TOUCH` in `engine.js`) from
 `navigator.maxTouchPoints` or `ontouchstart`. It does not disable the keyboard.
 
-- **Movement**: a fixed virtual joystick sits in the lower-left corner.
-  Deflection is analog with a 22% deadzone; the ship moves in the stick
-  direction at a speed proportional to how far it is pushed. Keyboard arrows
-  continue to work.
-- **Fire**: the large `FIRE` button in the lower-right holds the shoot key
-  (`Z`) for as long as it is pressed, so tapping/holding fires normally. It
-  also confirms menu options and advances dialog. Auto-fire is an optional
-  Settings toggle (off by default on touch).
+- **Movement**: the virtual joystick is a DOM control outside the canvas.
+  In landscape it sits in the left letterbox gutter; in portrait it sits in a
+  bottom control deck. Deflection is analog with a 22% deadzone; the ship
+  moves in the stick direction at a speed proportional to how far it is
+  pushed. Keyboard arrows continue to work.
+- **Fire**: the large `FIRE` button holds the shoot key (`Z`) for as long as
+  it is pressed, so tapping/holding fires normally. It also confirms menu
+  options and advances dialog. Auto-fire is an optional Settings toggle (off
+  by default on touch).
 - **Bomb / cancel**: in play, `BOMB` sends `X` (flash bomb when the gauge is
   full, deathbomb during the 16-frame window); in menus it acts as
   Back/Cancel.
 - **Focus / spell / pause**: the `FOCUS` toggle replaces Shift (0.58× speed
   and homing); `SPELL` spends a spell stock (also usable as a deathbomb);
-  `II` pauses.
+  `II` pauses. `FULL` toggles fullscreen (and requests landscape lock) from
+  any pad screen; it is hidden when the browser lacks the API.
 - **Menus**: the joystick navigates every cursor menu (difficulty, stage
   select, pause, settings) with initial-press and auto-repeat edges;
-  `FIRE` confirms, `BOMB` backs out. Touch-specific layouts, tap zones, and
-  dialog tap-to-advance remain available. Stage select uses a 2×4 grid with
+  `FIRE` confirms, `BOMB` backs out. Canvas tap zones and dialog
+  tap-to-advance remain available. Stage select uses a 2×4 grid with
   SELECT ALL.
-- **Hit testing**: draw functions register rectangular zones with
-  `TouchUI.add()` each frame; `boot.js` resolves touches against the last
-  drawn frame in reverse draw order. The joystick and action buttons are
-  resolved first so they always win over menu/dialog zones. Zones reset at
-  the start of every `drawScreen()`.
-- **Orientation**: portrait phones show a rotate overlay with a
-  `PLAY IN PORTRAIT` skip. The 640×480 canvas is letterboxed and scaled to fit
-  either orientation.
+- **Layout**: `fit()` uses `visualViewport` dimensions and offsets. Landscape
+  places the pad in the side letterbox gutters when they are wide enough;
+  portrait aligns the canvas above a bottom deck. When no gutters exist
+  (4:3 tablets), controls fall back to a bottom overlay. The pad is hidden on
+  help, game-over, result, and demo screens. Safe-area insets keep the stick,
+  buttons, and pause/full controls clear of notches and home indicators.
+- **Hit testing**: menu taps still use rectangular zones registered with
+  `TouchUI.add()` each frame and resolved by `boot.js` in reverse draw order.
+  The joystick and action buttons are real DOM elements with pointer events,
+  so they never pass through to the canvas. Zones reset at the start of every
+  `drawScreen()`.
+- **Orientation**: portrait phones show a rotate overlay with `FULLSCREEN`
+  (requests fullscreen, then landscape lock) and `PLAY IN PORTRAIT`. The
+  640×480 canvas is letterboxed and scaled to fit either orientation.
 
 ---
 
@@ -596,19 +604,24 @@ Manual regression checklist:
   than swapping tracks; stage music returns on story waves and route changes.
 - Settings/help open from the title (S/H) and pause, and persist after reload.
 - Flash bomb fires only when the gauge is full; C always casts a spell.
-- Touch: title, difficulty, stage grid, settings, help, pause, game over, and
-  result controls all respond; the joystick moves the ship smoothly and does
-  not teleport it.
+- Touch: the DOM joystick sits in the landscape side gutter (or the portrait
+  deck) and moves the ship smoothly without teleporting; it never covers the
+  playfield.
 - Touch: joystick up/down/left/right navigates menus with auto-repeat; FIRE
-  confirms, BOMB cancels/backs out.
+  confirms, BOMB cancels/backs out; menu tap zones still respond.
 - Touch: FIRE shoots while held; BOMB fires the flash bomb when ready and
   deathbombs during the hit window; SPELL spends a stock.
 - Touch: focus toggle slows movement and enables homing; FOCUS survives
   pause/resume but resets on a new run.
 - Touch: pause remains reachable during dialog; dialog advances on tap or
-  FIRE.
-- Portrait orientation shows the rotate overlay and the skip button; landscape
-  scales the canvas to fit.
+  FIRE. The pad hides on help, game-over, result, and demo screens.
+- Touch: portrait shows the rotate overlay; FULLSCREEN requests landscape
+  where supported, and PLAY IN PORTRAIT uses the bottom deck.
+- Touch: the pad `FULL` button toggles fullscreen (label becomes EXIT) from
+  any pad screen when the browser supports it.
+- Touch: 4:3 tablets without side gutters fall back to the bottom overlay;
+  resizing or rotating reflows the pad and canvas, and safe-area insets keep
+  controls clear of notches and home indicators.
 - Auto-fire is optional in touch Settings (off by default).
 
 ---
