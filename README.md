@@ -306,24 +306,30 @@ is the true target.
 Touch support is detected once at load (`IS_TOUCH` in `engine.js`) from
 `navigator.maxTouchPoints` or `ontouchstart`. It does not disable the keyboard.
 
-- **Movement**: drag anywhere outside a button. Movement is relative and
-  incremental (the ship follows finger deltas at 1.7× gain), so the ship never
-  jumps under the finger.
-- **Focus**: the on-screen `FOCUS` toggle replaces Shift; while active,
-  movement speed is multiplied by 0.58 and homing applies.
-- **Buttons**: `SPELL` and `FLASH` fire the corresponding bombs; both can be
-  tapped during the 16-frame deathbomb window. `II` pauses.
-- **Auto-fire**: forced ON for touch sessions and locked in Settings
-  (`ON · TOUCH`), so no fire button is needed.
-- **Menus**: touch-specific layouts are drawn for the title, difficulty and
-  stage-select screens, pause menu, settings, help, game over, results, and
-  dialogs. Dialog boxes advance on tap. Stage select uses a 2×4 grid with
+- **Movement**: a fixed virtual joystick sits in the lower-left corner.
+  Deflection is analog with a 22% deadzone; the ship moves in the stick
+  direction at a speed proportional to how far it is pushed. Keyboard arrows
+  continue to work.
+- **Fire**: the large `FIRE` button in the lower-right holds the shoot key
+  (`Z`) for as long as it is pressed, so tapping/holding fires normally. It
+  also confirms menu options and advances dialog. Auto-fire is an optional
+  Settings toggle (off by default on touch).
+- **Bomb / cancel**: in play, `BOMB` sends `X` (flash bomb when the gauge is
+  full, deathbomb during the 16-frame window); in menus it acts as
+  Back/Cancel.
+- **Focus / spell / pause**: the `FOCUS` toggle replaces Shift (0.58× speed
+  and homing); `SPELL` spends a spell stock (also usable as a deathbomb);
+  `II` pauses.
+- **Menus**: the joystick navigates every cursor menu (difficulty, stage
+  select, pause, settings) with initial-press and auto-repeat edges;
+  `FIRE` confirms, `BOMB` backs out. Touch-specific layouts, tap zones, and
+  dialog tap-to-advance remain available. Stage select uses a 2×4 grid with
   SELECT ALL.
 - **Hit testing**: draw functions register rectangular zones with
   `TouchUI.add()` each frame; `boot.js` resolves touches against the last
-  drawn frame in reverse draw order, so overlays (pause during dialog,
-  confirmation buttons) take precedence. Zones reset at the start of every
-  `drawScreen()`.
+  drawn frame in reverse draw order. The joystick and action buttons are
+  resolved first so they always win over menu/dialog zones. Zones reset at
+  the start of every `drawScreen()`.
 - **Orientation**: portrait phones show a rotate overlay with a
   `PLAY IN PORTRAIT` skip. The 640×480 canvas is letterboxed and scaled to fit
   either orientation.
@@ -591,14 +597,19 @@ Manual regression checklist:
 - Settings/help open from the title (S/H) and pause, and persist after reload.
 - Flash bomb fires only when the gauge is full; C always casts a spell.
 - Touch: title, difficulty, stage grid, settings, help, pause, game over, and
-  result controls all respond; drag movement does not teleport the ship.
+  result controls all respond; the joystick moves the ship smoothly and does
+  not teleport it.
+- Touch: joystick up/down/left/right navigates menus with auto-repeat; FIRE
+  confirms, BOMB cancels/backs out.
+- Touch: FIRE shoots while held; BOMB fires the flash bomb when ready and
+  deathbombs during the hit window; SPELL spends a stock.
 - Touch: focus toggle slows movement and enables homing; FOCUS survives
   pause/resume but resets on a new run.
-- Touch: pause remains reachable during dialog; dialog advances only on a
-  non-pause tap.
+- Touch: pause remains reachable during dialog; dialog advances on tap or
+  FIRE.
 - Portrait orientation shows the rotate overlay and the skip button; landscape
   scales the canvas to fit.
-- Auto-fire is on and locked in touch Settings.
+- Auto-fire is optional in touch Settings (off by default).
 
 ---
 

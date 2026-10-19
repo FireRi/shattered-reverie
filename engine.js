@@ -16,8 +16,15 @@ const PLAYER_HIT_R=2.6;
 const GRAZE_R=14;
 const OPTION_TURN_RATE=7;
 const IS_TOUCH=(typeof navigator!=='undefined'&&navigator.maxTouchPoints>0)||(typeof window!=='undefined'&&'ontouchstart' in window);
+const TOUCH_CTRL={
+ stick:{x:78,y:H-46,r:42,knob:18,hit:46},
+ fire:{x:W-60,y:H-52,r:36,hit:44},
+ bomb:{x:W-158,y:H-48,r:26,hit:38}
+};
+const TOUCH_CTRL_SCREENS=['title','diff','sel','pause','play','settings'];
 const TouchUI={
- zones:[],focus:false,moveId:null,moveSX:0,moveSY:0,movePX:0,movePY:0,
+ zones:[],focus:false,fireId:null,bombId:null,
+ stick:{active:false,id:null,ax:0,ay:0,kx:0,ky:0,dir:null,next:0},
  reset(){this.zones.length=0;},
  add(x,y,w,h,fn,label){this.zones.push({x,y,w,h,fn,label:label||''});},
  hit(x,y){
@@ -26,6 +33,28 @@ const TouchUI={
    if(x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h){z.fn();return true;}
   }
   return false;
+ },
+ visible(){return IS_TOUCH&&!Gdemo&&TOUCH_CTRL_SCREENS.indexOf(G.screen)>=0;},
+ resetStick(){
+  const s=this.stick;
+  s.active=false;s.id=null;s.ax=0;s.ay=0;s.kx=0;s.ky=0;s.dir=null;s.next=0;
+ },
+ cancelTouches(){this.resetStick();this.fireId=null;this.bombId=null;},
+ setStick(x,y){
+  const S=TOUCH_CTRL.stick,s=this.stick;
+  let dx=x-S.x,dy=y-S.y,len=Math.hypot(dx,dy);
+  if(!len){s.ax=0;s.ay=0;s.kx=0;s.ky=0;return;}
+  const mag=Math.min(1,len/S.r),adj=mag<=.22?0:Math.min(1,(mag-.22)/.78);
+  const nx=dx/len,ny=dy/len,kd=Math.min(len,S.r)*(S.r-S.knob)/S.r;
+  s.ax=nx*adj;s.ay=ny*adj;s.kx=nx*kd;s.ky=ny*kd;
+ },
+ updateStick(now){
+  const s=this.stick;
+  if(!s.active){s.dir=null;return;}
+  if(Math.hypot(s.ax,s.ay)<.42){s.dir=null;return;}
+  const dir=Math.abs(s.ax)>Math.abs(s.ay)?(s.ax>0?KEY.RIGHT:KEY.LEFT):(s.ay>0?KEY.DOWN:KEY.UP);
+  if(s.dir!==dir){s.dir=dir;s.next=now+340;edge[dir]=true;}
+  else if(now>=s.next){edge[dir]=true;s.next=now+140;}
  }
 };
 const keys={},edge={};

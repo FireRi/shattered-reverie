@@ -83,7 +83,9 @@ function updatePlayerMovement(){
  PL.focus=down(KEY.SHIFT)||TouchUI.focus;
  const sp=PL.focus?3.2:5.5;
  let dx=(down(KEY.RIGHT)?1:0)-(down(KEY.LEFT)?1:0),dy=(down(KEY.DOWN)?1:0)-(down(KEY.UP)?1:0);
- if(dx&&dy){dx*=.7071;dy*=.7071;}
+ if(IS_TOUCH&&TouchUI.stick.active){dx=TouchUI.stick.ax;dy=TouchUI.stick.ay;}
+ const mag=Math.hypot(dx,dy);
+ if(mag>1){dx/=mag;dy/=mag;}
  PL.x=clamp(PL.x+dx*sp,12,W-12);PL.y=clamp(PL.y+dy*sp,12,H-12);
  if(dx>0)PL.tilt=Math.min(1,(PL.tilt||0)+.14);else if(dx<0)PL.tilt=Math.max(-1,(PL.tilt||0)-.14);
  else PL.tilt=(PL.tilt||0)*.82;

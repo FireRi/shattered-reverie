@@ -31,7 +31,7 @@ function applySettings(){
  G.bloomEnabled=settings.bloom!==false;
  G.flashEnabled=settings.flash!==false;
  G.aiDialogue=settings.aiDialogue!==false;
- autoFire=IS_TOUCH?true:!!settings.autoFire;showFps=!!settings.showFps;
+ autoFire=!!settings.autoFire;showFps=!!settings.showFps;
  setMusicVol(settings.musicVol,true);setSfxVol(settings.sfxVol,true);
 }
 function loadSettings(){
@@ -100,7 +100,7 @@ function saveHi(){if(G.score>G.hi){G.hi=G.score;G.newHi=true;try{localStorage.se
 function spendCredit(){if(G_coins<=0)return false;G_coins--;G.creditsUsed=(G.creditsUsed||0)+1;return true;}
 function goTitle(saveScore=true){
  if(saveScore)saveHi();
- TouchUI.focus=false;TouchUI.moveId=null;
+ TouchUI.focus=false;TouchUI.resetStick();
  Gdemo=false;G.screen='title';G.idleT=0;G.pauseConfirm=null;G.bannerT=0;
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  G.wave=null;G.needWave=false;
@@ -116,7 +116,7 @@ function startRun(){
  G.od=0;G.trance=0;G.streak=0;G.bestStreak=0;G.streakMult=1;G.sparksGot=0;G.spellHist=[];
  G.creditsUsed=0;G.oneCCFailed=false;G.newHi=false;G.pauseConfirm=null;G.resultT=0;G.spellUsedOwn=0;
  G_coins=G.oneCC?1:3;
- TouchUI.focus=false;TouchUI.moveId=null;
+ TouchUI.focus=false;TouchUI.resetStick();
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  G.wave=null;G.needWave=!!G.story;mobs.length=0;
  resetPlayer(true);PL.graze=0;PL.power=300;
@@ -169,6 +169,7 @@ function continueFromBoss(){
 }
 function onGameOver(){
  G_contRoute=G.routeIdx;G_contBoss=G.bossIdx;
+ TouchUI.resetStick();
  saveHi();
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  mobs.length=0;G.wave=null;G.needWave=false;
@@ -177,6 +178,7 @@ function onGameOver(){
  else{G.screen='gameover';G.resultT=0;}
 }
 function showResults(){
+ TouchUI.resetStick();
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  mobs.length=0;G.wave=null;G.needWave=false;
  G.screen='result';G.resultT=0;stopBgm();saveHi();
@@ -303,7 +305,6 @@ function updateMenus(){
     settings.sfxVol=clamp(settings.sfxVol+(right?1:-1),0,SFX_STEPS.length-1);
     setSfxVol(settings.sfxVol);changed=true;
    }else if(hitK(KEY.Z)||hitK(KEY.ENTER)){
-    if(it.k==='autoFire'&&IS_TOUCH){sfx('no');break;}
     sfx('ok');
     if(it.k==='back'){G.screen=G.settingsFrom;break;}
     if(it.k==='musicVol')settings.musicVol=(settings.musicVol+1)%VOL_STEPS.length;
@@ -334,6 +335,7 @@ addEventListener('keydown',e=>{
 function autoPause(){
  for(const k in keys)keys[k]=false;
  for(const k in edge)edge[k]=false;
+ TouchUI.cancelTouches();
  if(G.screen==='play'&&!Gdemo){G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;}
 }
 addEventListener('blur',autoPause);
@@ -344,8 +346,8 @@ let bgGrad=null,bgKey='';
 function startDemo(){
  const ri=irnd(0,ROUTES.length-1);
  Gdemo=true;G.screen='play';G.routeQueue=[ri];G.routeIdx=0;G.bossIdx=0;
- TouchUI.focus=false;TouchUI.moveId=null;
- G.oneCC=false;G.story=false;G.creditsUsed=0;G.oneCCFailed=false;
+  TouchUI.focus=false;TouchUI.resetStick();
+  G.oneCC=false;G.story=false;G.creditsUsed=0;G.oneCCFailed=false;
  G.score=0;G.dispScore=0;G.spellsPlayed=0;G.spellsCaptured=0;G.deaths=0;
  G.od=0;G.trance=0;G.streak=0;G.bestStreak=0;G.streakMult=1;G.sparksGot=0;G.spellHist=[];
  mobs.length=0;G.wave=null;G.needWave=false;
@@ -558,25 +560,59 @@ function drawTouchPlayUI(){
  const canBomb=!PL.dead&&bombsAvailable();
  const canSave=PL.dead&&PL.deathWindow>0;
  touchBtn(10,44,52,38,'II',()=>{
-  TouchUI.moveId=null;G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;sfx('cur');
+  TouchUI.resetStick();G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;sfx('cur');
  },{id:'play:pause',font:'bold 15px monospace',col:'#9ab'});
  if(BOSS&&BOSS.state==='dialog')return;
- touchBtn(W-90,270,68,32,'FOCUS',()=>{
+ touchBtn(W-252,H-180,80,32,'FOCUS',()=>{
   TouchUI.focus=!TouchUI.focus;sfx('cur');
  },{id:'play:focus',sub:TouchUI.focus?'ON':'OFF',active:TouchUI.focus,col:'#ffd700',font:'bold 11px monospace'});
- touchCircle(W-56,352,27,'SPELL',PL.dead?(canSave?'SAVE':'—'):'×'+PL.spells,()=>{
+ touchCircle(W-72,H-172,25,'SPELL',PL.dead?(canSave?'SAVE':'—'):'×'+PL.spells,()=>{
   AudioSys.unlock();
   if(PL.dead){if(PL.deathWindow>0)tryDeathbomb();return;}
   if(!canBomb){sfx('no');return;}
   if(!useSpell())sfx('no');
  },{id:'play:spell',on:PL.spells>0&&(canBomb||canSave),subCol:'#8cf'});
- const flashReady=PL.flash>=PL.flashMax;
- touchCircle(W-56,422,30,'FLASH',PL.dead?(canSave?'SAVE':'—'):(flashReady?'READY':PL.flash+'/'+PL.flashMax),()=>{
-  AudioSys.unlock();
-  if(PL.dead){if(PL.deathWindow>0)tryDeathbomb();return;}
-  if(!flashReady||!canBomb){sfx('no');return;}
-  useFlashBomb();
- },{id:'play:flash',on:(canBomb&&flashReady)||canSave,progress:flashReady?1:PL.flash/PL.flashMax,col:flashReady?'#fff':'#58a6ff',subCol:'#8cf'});
+}
+function ctrlCircle(o,label,sub,on,progress,col,subCol){
+ cx.save();
+ cx.beginPath();cx.arc(o.x,o.y,o.r,0,TAU);
+ cx.fillStyle=on?'rgba(10,18,34,.72)':'rgba(10,18,34,.34)';cx.fill();
+ cx.strokeStyle=on?(col||'#7fdfff'):'#456';cx.lineWidth=2;cx.stroke();
+ if(progress!==undefined){
+  cx.beginPath();cx.arc(o.x,o.y,o.r-5,-Math.PI/2,-Math.PI/2+TAU*clamp(progress,0,1));
+  cx.strokeStyle=on?'#fff':'#58a6ff';cx.lineWidth=4;cx.stroke();
+ }
+ cx.textAlign='center';cx.textBaseline='middle';
+ cx.fillStyle=on?'#fff':'#777';cx.font='bold 11px monospace';
+ cx.fillText(label,o.x,o.y-3);
+ cx.font='bold 10px monospace';
+ cx.fillStyle=on?(subCol||'#9cf'):'#666';
+ cx.fillText(sub,o.x,o.y+11);
+ cx.restore();
+}
+function drawTouchController(){
+ if(!TouchUI.visible())return;
+ const S=TOUCH_CTRL.stick,F=TOUCH_CTRL.fire,B=TOUCH_CTRL.bomb,st=TouchUI.stick;
+ cx.save();
+ cx.globalAlpha=st.active?1:.82;
+ cx.beginPath();cx.arc(S.x,S.y,S.r,0,TAU);
+ cx.fillStyle='rgba(8,16,30,.58)';cx.fill();
+ cx.strokeStyle=st.active?'#dff':'rgba(127,223,255,.68)';cx.lineWidth=2;cx.stroke();
+ cx.globalAlpha=st.active?1:.72;
+ cx.beginPath();cx.arc(S.x+st.kx,S.y+st.ky,S.knob,0,TAU);
+ cx.fillStyle=st.active?'rgba(150,215,255,.88)':'rgba(90,140,190,.62)';cx.fill();
+ cx.strokeStyle='#dff';cx.lineWidth=1.5;cx.stroke();
+ cx.globalAlpha=1;
+ ctrlCircle(F,'FIRE','',true,undefined,'#ff9fb0','#fcc');
+ const inPlay=G.screen==='play';
+ const canSave=inPlay&&PL.dead&&PL.deathWindow>0;
+ const ready=inPlay&&PL.flash>=PL.flashMax;
+ ctrlCircle(B,inPlay?'BOMB':'BACK',
+  inPlay?(PL.dead?(canSave?'SAVE':'—'):(ready?'READY':PL.flash+'/'+PL.flashMax)):'',
+  inPlay?(PL.dead?canSave:ready):true,
+  inPlay?PL.flash/PL.flashMax:undefined,
+  ready?'#fff':'#8fd8ff','#8cf');
+ cx.restore();
 }
 function drawHUD(){
  cx.font='12px "Pixel8",monospace';cx.textAlign='right';cx.textBaseline='top';
@@ -713,7 +749,7 @@ function drawHUD(){
   cx.fillText('STREAK ×'+G.streakMult.toFixed(2)+'  ('+G.streak+')',W-14,66);
  }
  if(G.spellHist.length){
-  let hx=16;
+  let hx=IS_TOUCH?150:16;
   for(const cap of G.spellHist){
    cx.fillStyle=cap?'#6f6':'#f55';
    cx.beginPath();cx.arc(hx,H-12,3.2,0,TAU);cx.fill();
@@ -849,6 +885,7 @@ function drawScreen(){
   else if(G.screen==='settings')drawSettings();
   else if(G.screen==='help')drawHelp();
  }
+ if(IS_TOUCH)drawTouchController();
 }
 
 /* ---------- screens ---------- */
@@ -1136,10 +1173,8 @@ function drawTouchSettings(){
   if(it.k==='musicVol')val=Math.round(VOL_STEPS[settings.musicVol]*100)+'%';
   else if(it.k==='sfxVol')val=Math.round(SFX_STEPS[settings.sfxVol]*100)+'%';
   else if(it.k==='mute')val=AudioSys.muted?'ON':'OFF';
-  else if(it.k==='autoFire')val='ON · TOUCH';
   else if(it.k!=='back')val=settings[it.k]?'ON':'OFF';
   let active=it.k==='mute'?AudioSys.muted:vol?true:(it.k!=='back'&&!!settings[it.k]);
-  if(it.k==='autoFire')active=true;
   const sel=G.settingsCursor===i;
   cx.fillStyle='rgba(10,18,34,.64)';cx.fillRect(x,y,cw,ch);
   cx.strokeStyle=it.k==='back'?'#f88':(sel?'#ffd0d0':(active?'#8fc':'#456'));
@@ -1164,13 +1199,12 @@ function drawTouchSettings(){
    TouchUI.add(x+cw/2,y,cw/2,ch,()=>{G.settingsCursor=i;edge[KEY.RIGHT]=true;},'settings:'+it.k+':+');
   }else{
    TouchUI.add(x,y,cw,ch,()=>{
-    if(it.k==='autoFire'){sfx('no');return;}
     G.settingsCursor=i;edge[KEY.Z]=true;
    },'settings:'+it.k);
   }
  });
  cx.textAlign='center';cx.fillStyle='#567';cx.font='bold 11px monospace';
- cx.fillText('TAP ITEMS TO TOGGLE · ◀ ▶ TO ADJUST · BACK RETURNS',W/2,H-30);
+ cx.fillText('TAP OR STICK + FIRE · ◀ ▶ ADJUST · BACK RETURNS',W/2,H-30);
 }
 function drawSettings(){
  if(IS_TOUCH){drawTouchSettings();return;}
@@ -1196,9 +1230,9 @@ function drawHelp(){
  menuFrame('HOW TO PLAY');
  if(IS_TOUCH)touchBtn(16,14,104,40,'BACK',()=>{sfx('cur');G.screen=G.helpFrom;},{id:'help:back',col:'#9ab'});
  const left=IS_TOUCH?[
-  ['MOVE','Drag anywhere'],['FOCUS','Toggle button'],['SHOOT','Auto-fire'],['SPELL','Right button'],
-  ['FLASH','When gauge full'],['DEATHBOMB','Tap SPELL / FLASH'],['PAUSE','Top-left button'],
-  ['MENUS','Tap options'],['SETTINGS','Title / pause'],['AUDIO','Mute in settings']
+  ['MOVE','Joystick'],['FOCUS','Toggle button'],['SHOOT','FIRE (hold)'],['BOMB','BOMB button'],
+  ['SPELL','SPELL button'],['DEATHBOMB','BOMB / SPELL'],['PAUSE','II button'],
+  ['MENUS','Stick + FIRE'],['SETTINGS','Title / pause'],['AUDIO','Mute in settings']
  ]:[
   ['MOVE','Arrows'],['FOCUS','Shift'],['SHOOT','Z (hold)'],['SPELL','C — 1 spell'],
   ['FLASH','X — when full'],['DEATHBOMB','X / C after hit'],['PAUSE','Esc · R restart'],
@@ -1235,12 +1269,13 @@ function frame(now){
   acc-=1000/60;
   G.frame++;
   updatePetals();
+  if(IS_TOUCH)TouchUI.updateStick(now);
    if(hitK(KEY.ESC)){
     const s=G.screen;
-    if(s==='play'){
-     if(Gdemo)endDemo();
-     else{G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;sfx('cur');}
-    }else if(s==='pause'){
+     if(s==='play'){
+      if(Gdemo)endDemo();
+      else{TouchUI.resetStick();G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;sfx('cur');}
+     }else if(s==='pause'){
      if(G.pauseConfirm){G.pauseConfirm=null;sfx('no');}
      else G.screen='play';
     }else if(s==='diff'){G.screen='title';sfx('cur');}
@@ -1264,7 +1299,6 @@ requestAnimationFrame(frame);
 loadAssets();
 
 /* ---- Mobile / Touch Support ---- */
-/* Touch input lives in boot.js; auto-fire is mandatory on touch devices. */
-if(IS_TOUCH){autoFire=true;settings.autoFire=true;}
+/* Touch input (joystick + action buttons) lives in boot.js. */
 
 startTitleBgm();
