@@ -1,9 +1,10 @@
 "use strict";
 /* ================= AUDIO ================= */
-const AudioSys={ctx:null,master:null,muted:false,bgmTimer:null,nextT:0,step:0,seed:1,vol:.17,
+const AudioSys={ctx:null,master:null,sfxGain:null,muted:false,bgmTimer:null,nextT:0,step:0,seed:1,vol:.17,
  buffers:{},
- unlock(){if(this.ctx)return;try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();
+ unlock(){if(this.ctx){if(this.ctx.state==='suspended')this.ctx.resume().catch(()=>{});return;}try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();
   this.master=this.ctx.createGain();this.master.gain.value=this.vol;this.master.connect(this.ctx.destination);
+  this.sfxGain=this.ctx.createGain();this.sfxGain.gain.value=.9*SFX_STEPS[sfxVolIdx];this.sfxGain.connect(this.master);
   preloadSfx();}catch(e){}},
  playSample(name){
   const key=SFX_FILES[name];if(!key)return false;
@@ -11,19 +12,19 @@ const AudioSys={ctx:null,master:null,muted:false,bgmTimer:null,nextT:0,step:0,se
   if(this.muted||!this.ctx)return true;
   const s=this.ctx.createBufferSource();s.buffer=buf;
   const g=this.ctx.createGain();g.gain.value=SFX_VOL[name]??.4;
-  g.connect(this.master);s.connect(g);s.start(this.ctx.currentTime);return true;
+  g.connect(this.sfxGain||this.master);s.connect(g);s.start(this.ctx.currentTime);return true;
  },
  tone(f,dur,type='square',vol=.5,slide=0,delay=0){if(!this.ctx||this.muted)return;const t=this.ctx.currentTime+delay;
   const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
   if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f+slide),t+dur);
   g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
-  o.connect(g);g.connect(this.master);o.start(t);o.stop(t+dur+.02);},
+  o.connect(g);g.connect(this.sfxGain||this.master);o.start(t);o.stop(t+dur+.02);},
  noise(dur,vol=.4,delay=0,hp=0){if(!this.ctx||this.muted)return;const t=this.ctx.currentTime+delay;
   const n=this.ctx.sampleRate*dur,buf=this.ctx.createBuffer(1,n,this.ctx.sampleRate),d=buf.getChannelData(0);
   for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
   const s=this.ctx.createBufferSource();s.buffer=buf;const g=this.ctx.createGain();g.gain.value=vol;
   let node=s;if(hp){const f=this.ctx.createBiquadFilter();f.type='highpass';f.frequency.value=hp;s.connect(f);node=f;}
-  node.connect(g);g.connect(this.master);s.start(t);}};
+  node.connect(g);g.connect(this.sfxGain||this.master);s.start(t);}};
 function sfx(name,o={}){
  if(AudioSys.playSample(name))return;
  switch(name){
@@ -251,12 +252,20 @@ function startBgm(seed,tempoHint){
 }
 function stopBgm(){Music.on=false;}
 const VOL_STEPS=[.2,.35,.5,.7,1];
-let musicVolIdx=2;
-function setMusicVol(idx){
+const SFX_STEPS=[.2,.35,.5,.7,1];
+let musicVolIdx=2,sfxVolIdx=2;
+function setMusicVol(idx,silent){
  musicVolIdx=clamp(idx,0,VOL_STEPS.length-1);
  if(Music.gain)Music.gain.gain.value=.9*VOL_STEPS[musicVolIdx];
  try{localStorage.setItem('lasr_mvol',String(musicVolIdx));}catch(e){}
- addText(W-70,H-60,'MUSIC '+Math.round(VOL_STEPS[musicVolIdx]*100)+'%','#9cf',13,50);
+ if(!silent)addText(W-70,H-60,'MUSIC '+Math.round(VOL_STEPS[musicVolIdx]*100)+'%','#9cf',13,50);
+}
+function setSfxVol(idx,silent){
+ sfxVolIdx=clamp(idx,0,SFX_STEPS.length-1);
+ if(AudioSys.sfxGain)AudioSys.sfxGain.gain.value=.9*SFX_STEPS[sfxVolIdx];
+ try{localStorage.setItem('lasr_svol',String(sfxVolIdx));}catch(e){}
+ if(!silent)addText(W-70,H-80,'SFX '+Math.round(SFX_STEPS[sfxVolIdx]*100)+'%','#9cf',13,50);
 }
 try{const v=parseInt(localStorage.getItem('lasr_mvol')||'2');if(v>=0&&v<VOL_STEPS.length)musicVolIdx=v;}catch(e){}
+try{const v=parseInt(localStorage.getItem('lasr_svol')||'2');if(v>=0&&v<SFX_STEPS.length)sfxVolIdx=v;}catch(e){}
 

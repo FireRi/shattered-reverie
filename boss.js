@@ -70,6 +70,8 @@ function startBoss(def,onDone){
   cutin:0,cutinName:'',cutinCol:def.col,spellActive:false,leftInRoute:def.leftInRoute||1,
   dlg:(typeof DIALOGS!=='undefined'&&DIALOGS[def.id])?DIALOGS[def.id]:defaultDialog(def),
   dgi:0,dShown:0,dT:0};
+ clearBullets(true);
+ PL.inv=Math.max(PL.inv,60);
  sfx('bosswalk');
 }
 function bossNextAttack(){
@@ -78,6 +80,7 @@ function bossNextAttack(){
  if(BOSS.idx>=list.length){startBossDeath();return;}
  const A=list[BOSS.idx];
  BOSS.atk=A;BOSS.hp=BOSS.maxHp=Math.round(A.l*DSCAL[DIFF].hp);BOSS.timer=A.t*60;
+ BOSS.hpDisp=1;
  BOSS.rate=A.rate!==undefined?A.rate:(A.n?0.03:0.09);
  BOSS.spellActive=!!A.n;
  if(A.n){
@@ -87,7 +90,7 @@ function bossNextAttack(){
  }
  clearBullets(true);
  G.spellBombUsed=false;
- BOSS.gen=A.p(bossCtx(BOSS));
+ BOSS.gen=A.n?null:A.p(bossCtx(BOSS));
  BOSS.x=W/2;BOSS.y=110;BOSS.moveT=0;
  addText(W/2,200,A.n?('Spell Card — '+A.n):(BOSS.def.name),'#fff',A.n?22:16,70);
 }
@@ -107,6 +110,7 @@ function startBossDeath(){
 }
 function damageBossRaw(d){
  if(!BOSS||BOSS.dying||!BOSS.atk)return;
+ if(BOSS.state!=='fight'||BOSS.cutin>0)return;
  if(G.trance>0)d*=1.5;
  const dmg=d*BOSS.rate;
  BOSS.hp-=dmg;G.score+=Math.floor(dmg*10);
@@ -137,7 +141,7 @@ function bossAttackEnd(captured){
   }
  }
  clearBullets(true);
- BOSS.atk=null;BOSS.gen=null;
+ BOSS.atk=null;BOSS.gen=null;BOSS.cutin=0;BOSS.spellActive=false;
  BOSS.state='rest';BOSS.t=0;
  itemSpray(BOSS.x,BOSS.y,6,Math.random()<.5?'P':'B');
 }
@@ -191,7 +195,7 @@ function bossUpdate(){
   const full=BOSS.dShown>=line[1].length;
   let advance=false;
   if(hitK(KEY.Z)){if(full)advance=true;else BOSS.dShown=line[1].length;}
-  else if(BOSS.dT>190)advance=true;
+  else if(BOSS.dT>190&&full)advance=true;
   if(advance){
    BOSS.dgi++;BOSS.dShown=0;BOSS.dT=0;
    if(BOSS.dgi>=BOSS.dlg.length){BOSS.state='fight';bossNextAttack();}
@@ -199,6 +203,12 @@ function bossUpdate(){
  }else if(BOSS.state==='rest'){
   if(BOSS.t>50){BOSS.state='fight';bossNextAttack();}
  }else if(BOSS.state==='fight'){
+  if(BOSS.cutin>0){
+   BOSS.cutin--;
+   if(BOSS.hurtT>0)BOSS.hurtT--;
+   if(BOSS.cutin<=0&&BOSS.atk&&!BOSS.gen)BOSS.gen=BOSS.atk.p(bossCtx(BOSS));
+   return;
+  }
   if(BOSS.timer>0){BOSS.timer--;if(BOSS.timer===0)bossAttackEnd(false);}
   if(BOSS.spellActive&&BOSS.t%170===60&&items.length<200)
    spawnItem('K',rnd(50,W-50),-14,rnd(-.6,.6));

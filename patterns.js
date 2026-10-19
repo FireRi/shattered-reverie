@@ -590,13 +590,12 @@ function*kaiN1(b){
    for(let j=0;j<3;j++){
      b.S({x:x0,y:b.y(),v:DV(4+j*.6),ang:60*dir+(dir>0?20:70),g:'orb:yellow',r:8,
       fn(u){
-       let bounces=0;
        if(u.y>H-30&&u.vy>0){
         u.vy*=-.72;fxRing(u.x,u.y,'#ffe060',4,30,2,14);
         for(let i=0;i<DN(5);i++)b.S({x:u.x,y:u.y,v:DV(2.6),ang:180+i*30,g:'ball:yellow',r:4});
         u.av=dir*rnd(6,18);u.dur=999;
-        bounces++;
-        if(bounces>=3){for(let i=0;i<DN(6);i++)b.S({x:u.x,y:u.y,v:DV(2),ang:i*60+30,g:'ball:orange',r:3});return false;}
+        u.bounces=(u.bounces||0)+1;
+        if(u.bounces>=3){for(let i=0;i<DN(6);i++)b.S({x:u.x,y:u.y,v:DV(2),ang:i*60+30,g:'ball:orange',r:3});return false;}
        }
        return true;
       }});

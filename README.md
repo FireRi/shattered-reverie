@@ -64,7 +64,7 @@ are callable from any later file. Shared mutable state (`G`, `PL`, `BOSS`,
 <a name="files"></a>
 ## 2. File Structure
 
-### engine.js (~1300 lines)
+### engine.js
 
 The foundation layer. Contains everything that must exist before any content:
 
@@ -84,7 +84,7 @@ The foundation layer. Contains everything that must exist before any content:
 | Laser system | Telegraphed straight-line hazards with warm-up/active/fade states |
 | Effects (`render.js`) | Ring, spark, shard, trail, puff, crescent, bloom, beam, seigaiha overlay |
 
-### patterns.js + p4–pexa.js (~1900 lines total)
+### patterns.js + p4–pexa.js
 
 Pure content files. Each exports nothing — they call `registerBoss()` to add
 entries into the shared `BOSS_DEFS` object, which `main.js` reads for route
@@ -111,7 +111,7 @@ function*myBossN1(b){
 }
 ```
 
-### story.js (~200 lines)
+### story.js
 
 Story-mode trash mobs plus the wave controller. Active only when `G.story`
 is true (selected from the difficulty menu).
@@ -128,29 +128,40 @@ Mobs plug into the existing combat: player shots, beam, homing options, spell
 ray, deathbomb and flash bomb all damage them (`damageMob` / `killMob`), and
 body contact kills the player like a boss collision.
 
-### main.js (~850 lines)
+### main.js
 
 Game state machine, screen renderer, HUD, menus, results screen, music-reactive
 visuals, and the requestAnimationFrame loop.
 
 The difficulty menu offers five modes: Easy, Original, Absurdly All-Star,
-1CC (Original scaling, 1 credit) and Story (Original scaling + mob waves).
-Modes are exclusive — Story and 1CC cannot be combined.
+1CC (Original scaling, full route, 1 credit, no continues) and Story
+(Original scaling + mob waves). Modes are exclusive — Story and 1CC cannot be
+combined. Selecting 1CC skips stage select and starts the full route
+immediately. Story still uses stage select.
 
-Credit system: runs start with 3 coins (1 in 1CC). Dying with no lives spends
-one coin (`G.creditsUsed++`) and offers a continue; running dry sends the
-player to the title. The HUD shows `CREDIT ×N` once a coin is spent (always in
-1CC); the results screen totals credits used and awards ★ 1CC CLEAR ★.
+Credit system: normal runs start with 3 coins; 1CC starts with 1. No coin is
+spent automatically on death. The game-over screen offers Continue at the
+current boss or Retry the stage, each costing one coin (`spendCredit()`).
+Pause → Restart Stage also costs one coin and immediately ends 1CC eligibility.
+A 1CC death goes straight to results as a failure; 1CC CLEAR requires the full
+route with zero credits spent. The HUD always shows `CREDIT ×N` (hidden only in
+demo playback); the results screen totals credits used.
 
 Story flow: `G.needWave` / `G.wave` interleave one mob wave before every boss —
 `beginBossFight()` fires only after the wave reports clear (see `story.js`).
+The transition clears leftover bullets and grants brief invulnerability.
 
 State machine:
 ```
 title → diff → sel → play ⇄ pause
-                       play → gameover → play (retry) or title
+                       play → gameover → play (continue/retry) or title
                        play → result → title
+                     play → result (1CC failure) → title
 ```
+
+Persistence: `lasr_hi`, `lasr_diff`, `lasr_mvol`, `lasr_svol`, `lasr_mute`, and
+`lasr_settings` (JSON: music/SFX volume, mute, shake, bloom, flash, auto-fire,
+FPS, AI dialogue). Settings are available from the title (S) and pause menu.
 
 ---
 
@@ -354,8 +365,8 @@ Easy mode reduces both; Absurdly All-Star increases them.
 DIFF_EASY = 0   // DN×0.65, DV×0.85, boss HP×0.75
 DIFF_ORIG = 1   // baseline
 DIFF_ABEX = 2   // DN×2.2, DV×1.28, boss HP×1.15
-DIFF_1CC  = 3   // Original scaling, 1 credit, results track 1CC clear
-DIFF_STORY = 4  // Original scaling + pre-boss mob waves (see story.js)
+MODE_1CC  = 3   // Original scaling, full route, 1 credit, no continues; restart forfeits clear
+MODE_STORY = 4  // Original scaling + pre-boss mob waves, 3 credits (see story.js)
 ```
 
 ---
@@ -422,17 +433,21 @@ Single canvas, redrawn from scratch every frame:
 drawScreen()
   ├── drawBG()           Gradient + parallax stars + nebula blits +
   │                      aurora ribbons + vignette + route scenic backdrop
+  ├── drawSpellBG()      Full-screen spell-card backdrop + seigaiha wave
   ├── drawEntities()     Lasers → mobs → enemy bullets → player bullets →
   │                      items → player → FX particles → floating text
-  ├── drawBoss()         Aura rings + monogram + hurt flash + charge effect
-  ├── applyBloom()       Downscaled additive glow pass (0.15 alpha)
-  ├── drawHUD()          Score, boss bar, timer, lives, spells, power,
-  │                      flash gauge, OD meter, streak, spell history,
-  │                      credits, wave counter
+  ├── drawBoss()         Aura rings + monogram + hurt flash + magic circle
+  ├── applyBloom()       Downscaled additive glow pass (0.15 alpha, toggleable)
+  ├── drawHUD()          Score, boss bar, timer, lives, credits, spells,
+  │                      power, flash gauge, OD meter, streak, spell history,
+  │                      wave counter (hidden during boss dialog)
   ├── drawCutin()        Speedlines + gradient band + letter cascade +
   │                      portrait panel (during spell declarations)
-  └── Overlays           Warning banner, dialog box, screen flash, dim fade
+  └── Overlays           Warning banner, dialog box, screen flash, pause menus
 ```
+
+The pause screen draws the frozen field underneath its overlay. Management
+screens (settings/help) share the menu background and petal/star animation.
 
 ### Draw Call Budget
 
@@ -485,45 +500,42 @@ Generated at startup into cached offscreen canvases:
 | `gen_ring` | Circle stroke |
 | `gen_disc` | Filled circle |
 | `gen_seigaiha` | Concentric arc scales in overlapping rows (traditional Japanese pattern) |
-| Tinted sprites | Source sprite + `source-in` fill = recolored copy, cached by `(sprite, color)` key |
+| Tinted sprites | Source sprite + `source-in` fill = recolored copy, cached by `(sprite, color, size)` key |
 
 ---
 
 <a name="testing"></a>
 ## 8. Testing
 
-`_smoke.js` is a headless test harness that stubs DOM/Canvas/Audio and drives
-the game through simulated input across ~60k frames. It verifies:
+The historical `_smoke.js` harness is not included in this checkout (the file
+is ignored by `.gitignore`). Validate changes with syntax checks:
 
-**Structural assertions:**
-- All 45 boss lifecycle chains complete (enter → attacks → death → onDone)
-- No NaN values leak into entity arrays
-- Density ceilings respected (bullets ≤1600, fx ≤300)
-- Pool recycling active (>50% reuse)
-
-**Behavioral assertions:**
-- Menu navigation flow works (title→diff→sel→play)
-- Patterns keep firing throughout entire attack duration
-- Passive play deals zero damage (no accidental hits)
-- Pause opens/persists/resumes correctly
-- Beam requires alignment; rapid shots require line-of-sight
-- Focused homing trackers connect from offset positions
-- Deathbomb saves life within window
-- Flash bomb clears bullets and consumes gauge
-- Trance activates from sustained graze and expires
-- Streak increments on captures, resets on timeout
-- Route chaining produces results screen naturally
-- Music schedules dense note graph with zero out-of-key melody notes
-- Story wave clears into the boss with +1.0 power gained (pity + top-up)
-- O item pickup raises the OD meter; arcade runs spawn no wave
-- Mob bullets stay within speed caps and every volley is telegraphed
-
-Run with:
 ```
-node _smoke.js
+node --check engine.js
+node --check audio.js
+node --check player.js
+node --check boss.js
+node --check story.js
+node --check render.js
+node --check patterns.js
+node --check p4.js
+node --check p5.js
+node --check p6.js
+node --check pex.js
+node --check pexa.js
+node --check main.js
 ```
 
-Exit code 0 = all green. Any assertion failure prints details and exits 1.
+Manual regression checklist:
+- Title → difficulty → stage select → play.
+- 1CC selection starts the full route immediately with 1 credit.
+- Normal death opens game over without spending a credit; C, Z, or R spend one.
+- Pause → Restart Stage confirms, spends one credit, and ends 1CC eligibility.
+- 1CC death reaches results marked 1CC FAILED.
+- Story wave clears into the boss with no leftover bullets.
+- Title BGM restarts after results or quitting from pause.
+- Settings/help open from the title (S/H) and pause, and persist after reload.
+- Flash bomb fires only when the gauge is full; C always casts a spell.
 
 ---
 

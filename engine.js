@@ -29,7 +29,7 @@ const DV=v=>v*DSCAL[DIFF].s;
 
 const COL={
  red:['#ff5060','#ffb0b8'],pink:['#ff70c0','#ffc8e8'],orange:['#ff9030','#ffd8a0'],
- yellow:['#ffe060','#fff8c0'],green:['#60ff80','#c0ffc8'],teal:['#40e0d0','#b0fff4'],
+ yellow:['#ffe060','#fff8c0'],green:['#60ff80','#c0ffc8'],teal:['#40e0d0','#b0fff4'],cyan:['#40d0ff','#b0ecff'],
  blue:['#6090ff','#bcd0ff'],dblue:['#4050e0','#a0b0ff'],purple:['#c060ff','#e6c0ff'],
  white:['#f8f8ff','#ffffff'],gray:['#a0a0b0','#d8d8e0'],black:['#30303c','#90909c'],
  lime:['#b0ff30','#e8ffc0'],brown:['#c08050','#f0d0b0']
@@ -37,14 +37,14 @@ const COL={
 let eshots=[],pshots=[],items=[],fx=[],ftext=[],elasers=[],mobs=[];
 function resetFieldSafe(){eshots.length=0;pshots.length=0;items.length=0;elasers.length=0;mobs.length=0;}
 let shakeT=0,shakeM=0,flashA=0,flashC='#fff';
-function shake(f,m){shakeT=Math.max(shakeT,f);shakeM=m;}
-function screenFlash(a,c='#fff'){flashA=Math.max(flashA,a);flashC=c;}
+function shake(f,m){if(typeof G!=='undefined'&&G&&G.shakeEnabled===false)return;shakeT=Math.max(shakeT,f);shakeM=m;}
+function screenFlash(a,c='#fff'){if(typeof G!=='undefined'&&G&&G.flashEnabled===false)return;flashA=Math.max(flashA,a);flashC=c;}
 function addText(x,y,s,c='#fff',sz=14,life=45,vy=-0.7){if(ftext.length<40)ftext.push({x,y,s,c,sz,life,max:life,vy});}
 function fxRing(x,y,c,r0=6,r1=60,w=3,life=24){if(fx.length<300)fx.push({t:'ring',x,y,c,r0,r1,w,life,max:life});}
 function fxBurst(x,y,c,n=10,sp=4){for(let i=0;i<n;i++){if(fx.length>=300)break;const a=rnd(TAU);fx.push({t:'p',x,y,vx:Math.cos(a)*rnd(sp*.3,sp),vy:Math.sin(a)*rnd(sp*.3,sp),c,life:irnd(14,26),max:26});}}
 function fxSpark(x,y,c,life=12){if(fx.length<300)fx.push({t:'spark',x,y,c,life,max:life});}
 const ASSETS={};
-const SFX_FILES={pshot:'gun13_a',bossHit:'hit_s03_a',bomb:'bom20_a',death:'bom26_c',bossDie:'bom28_b',
+const SFX_FILES={pshot:'gun13_a',bossHit:'hit_s',bomb:'bom20_a',death:'bom26_c',bossDie:'bom28_b',
  item:'power01_b',extend:'power04',spellget:'power02',capture:'power03',
  cur:'cursor00_a',ok:'cursor01',no:'cursor03',warn:'alarm00'};
 const SFX_VOL={pshot:.35,bossHit:.15,bomb:.55,death:.6,bossDie:.6,item:.4,extend:.5,
@@ -125,7 +125,7 @@ function fxSlash(x,y,angDeg,scale=1){
 }
 const tintCache=new Map();
 function tinted(imgName,color,size=64){
- const key=imgName+color;
+ const key=imgName+'|'+color+'|'+size;
  let cv=tintCache.get(key);
  if(cv)return cv;
  const src=ASSETS[imgName];
@@ -153,8 +153,10 @@ function spawnE(o){
  Object.assign(s,{g:'ball',c:'white',x:0,y:0,v:2,ang:90,r:5,acc:0,max:-1,t:0,grazed:false,hit:true,
   av:0,end:null,dur:0,spin:rnd(TAU),alpha:1},o);
  if(!o.fast)s.v=Math.min(s.v||2,8.5);
+ if(!isFinite(s.v))s.v=2;
  if(!isFinite(s.x))s.x=W/2; if(!isFinite(s.y))s.y=-20;
- const an=(isFinite(s.ang)?s.ang:90)*Math.PI/180;
+ if(!isFinite(s.ang))s.ang=90;
+ const an=s.ang*Math.PI/180;
  s.vx=Math.cos(an)*s.v;s.vy=Math.sin(an)*s.v;
  eshots.push(s);eSpawned++;
 }

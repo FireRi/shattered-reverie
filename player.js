@@ -31,8 +31,11 @@ function clearBullets(toItems){
  }
  elasers.length=0;
 }
+function bombsAvailable(){
+ return (BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.atk&&BOSS.cutin<=0)||mobs.length>0;
+}
 function useFlashBomb(){
- if(PL.flash<PL.flashMax||PL.dead)return;
+ if(PL.flash<PL.flashMax||PL.dead||!bombsAvailable())return;
  if(BOSS&&BOSS.spellActive&&BOSS.atk)G.spellBombUsed=true;
  PL.flash=0;PL.inv=Math.max(PL.inv,60);sfx('flash');shake(14,6);screenFlash(.85,'#fff');
  const x=PL.x,y=PL.y;
@@ -43,7 +46,7 @@ function useFlashBomb(){
  for(const m of mobs.slice())damageMob(m,60);
 }
 function useSpell(){
- if(PL.spells<=0||PL.dead||(!BOSS&&mobs.length===0))return false;
+ if(PL.spells<=0||PL.dead||!bombsAvailable())return false;
  if(BOSS&&BOSS.spellActive&&BOSS.atk)G.spellBombUsed=true;
  PL.spells--;G.spellUsedOwn++;PL.inv=Math.max(PL.inv,230);sfx('bomb');shake(16,5);screenFlash(.7,'#fff');
  const sx=PL.x,sy=PL.y;
@@ -89,10 +92,9 @@ function updatePlayerMovement(){
  if(PL.focus&&PL.slowT++%6===0)fx.push({t:'focusring',x:PL.x,y:PL.y,life:40,max:40});
 }
 function handleBombInput(){
- const xHit=hitK(KEY.X),cHit=hitK(KEY.C);
- if(!(xHit||cHit)||PL.dead)return;
- if(!cHit&&PL.flash>=PL.flashMax&&!down(KEY.SHIFT))useFlashBomb();
- else useSpell();
+ if(PL.dead)return;
+ if(hitK(KEY.C)){useSpell();return;}
+ if(hitK(KEY.X)&&PL.flash>=PL.flashMax&&!down(KEY.SHIFT))useFlashBomb();
 }
 function firePlayerWeapon(){
  PL.shootT++;
@@ -141,7 +143,7 @@ function tickMonochromeRay(){
  if(G.monoRay.t>200)G.monoRay=null;
 }
 let _neC=null,_neF=-1;
-function _ne(){if(_neF!==G.frame){_neC=(BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.atk)?BOSS:null;_neF=G.frame;}return _neC;}
+function _ne(){if(_neF!==G.frame){_neC=(BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.atk&&BOSS.cutin<=0)?BOSS:null;_neF=G.frame;}return _neC;}
 function nearestEnemy(){_ne();return _neC;}
 const BOSS_HIT_R=26;
 function updateOptions(n,spread=true){
@@ -169,7 +171,7 @@ function activateTrance(){
 }
 function playerGrazeCheck(){
  grazeTick++;
- if(PL.inv<=0&&!PL.dead&&BOSS&&!BOSS.dying&&BOSS.state!=='enter'&&Math.abs(PL.x-BOSS.x)<34&&Math.abs(PL.y-BOSS.y)<34){
+ if(PL.inv<=0&&!PL.dead&&BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.cutin<=0&&Math.abs(PL.x-BOSS.x)<34&&Math.abs(PL.y-BOSS.y)<34){
   killPlayer();return;
  }
  if(PL.inv<=0&&!PL.dead){

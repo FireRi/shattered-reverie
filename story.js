@@ -202,6 +202,8 @@ function updateStoryWave(){
   }else{
    addText(W/2,200,'WAVE CLEAR!','#8f8',20,60);
   }
+  clearBullets(false);
+  PL.inv=Math.max(PL.inv,60);
   beginBossFight();
  }
 }
