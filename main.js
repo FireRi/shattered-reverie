@@ -104,7 +104,7 @@ function goTitle(saveScore=true){
  Gdemo=false;G.screen='title';G.idleT=0;G.pauseConfirm=null;G.bannerT=0;
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  G.wave=null;G.needWave=false;
- stopBgm();startBgm(999,120);
+ startTitleBgm();
 }
 
 function startRun(){
@@ -131,7 +131,7 @@ function nextRoute(){
  PL.spells=2;PL.power=Math.max(PL.power,300);
  G.bannerText=R.title.toUpperCase();G.bannerT=130;
  G.screen='play';
- startBgm(R.seed*77+13,R.seed%40+130);
+ startStageBgm(R);
 }
 function routeClear(){
  if(G.demo){G.demo=false;endDemo();return;}
@@ -164,7 +164,7 @@ function continueFromBoss(){
  G.bossIdx=clamp(G_contBoss,0,R.bosses.length-1);
  bgTint=R.tint;bgMode=R.mode||'';
  G.bannerText='CONTINUE';G.bannerT=80;G.screen='play';
- startBgm(R.seed*77+13,140);
+ startStageBgm(R);
  beginBossFight();
 }
 function onGameOver(){
@@ -325,7 +325,7 @@ function restartRoute(){
  G.monoRay=null;resetPlayer(true);G.bossIdx=0;
  G.bannerText=ROUTES[G.routeQueue[G.routeIdx]].title.toUpperCase();G.bannerT=110;
  G.screen='play';
- startBgm(ROUTES[G.routeQueue[G.routeIdx]].seed*77+13,140);
+ startStageBgm(ROUTES[G.routeQueue[G.routeIdx]]);
 }
 addEventListener('keydown',e=>{
  G.idleT=0;
@@ -353,7 +353,7 @@ function startDemo(){
  const R=ROUTES[ri];bgTint=R.tint;bgMode=R.mode||'';
  G.bannerText=R.title.toUpperCase();G.bannerT=80;
  if(typeof fetch==='function')fetchDynamicLine(BOSS_DEFS[R.bosses[0]]);
- startBgm(R.seed*77+13,140);
+ startStageBgm(R);
 }
 function endDemo(){goTitle(false);}
 function routeBgKey(){
@@ -1267,4 +1267,4 @@ loadAssets();
 /* Touch input lives in boot.js; auto-fire is mandatory on touch devices. */
 if(IS_TOUCH){autoFire=true;settings.autoFire=true;}
 
-startBgm(999,118);
+startTitleBgm();

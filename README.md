@@ -32,7 +32,8 @@ Every file is loaded via `<script>` tags in `index.html` in a specific order.
 ```
 index.html
   ├── engine.js      Core systems (loaded first, defines globals)
-  ├── audio.js       SFX synth + procedural music engine
+  ├── audio.js       SFX synthesis + music volume buses
+  ├── music.js       Per-stage/boss procedural score generator
   ├── player.js      Player ship, shots, bombs, graze
   ├── boss.js        Boss state machine + shared context API
   ├── story.js       Story-mode trash mobs + wave control
@@ -51,8 +52,8 @@ index.html
 The dependency chain is:
 
 ```
-engine.js  →  audio/player/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  boot.js
-(core)       (systems + content helpers)           (S1–3)      (more bosses)            (state machine)  (env)
+engine.js  →  audio  →  music  →  player/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  boot.js
+(core)       (sfx)     (score)     (systems + content helpers)      (S1–3)      (more bosses)            (state machine)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -76,8 +77,8 @@ The foundation layer. Contains everything that must exist before any content:
 | Entity arrays | `eshots[]`, `pshots[]`, `items[]`, `fx[]`, `ftext[]`, `elasers[]`, `mobs[]` |
 | Field reset | `resetFieldSafe()` wipes shots, items, lasers and mobs on continue / quit-to-title |
 | Player shots | `pUpdate()` tests the boss first, then every mob; dead homing targets retarget |
-| Audio system (`audio.js`) | Web Audio context management, SFX synthesis, sample-buffer playback |
-| Music engine (`audio.js`) | Seeded procedural chiptune sequencer with arrangement gating |
+| Audio system (`audio.js`) | Web Audio context management, SFX synthesis, sample-buffer playback, volume buses |
+| Music engine (`music.js`) | Stage palettes + per-boss themes, 16-bar arrangements, spell-card phases |
 | Player (`player.js`) | Movement, shooting, options, graze, flash bomb, spell, trance, deathbomb |
 | Boss framework (`boss.js`) | State machine (enter→dialog→fight→rest), attack lifecycle, damage rates |
 | Item system | Spawning, magnet collection, floor expiry (P/B/L/S/K/O — O feeds the OD meter) |
@@ -401,53 +402,76 @@ MODE_STORY = 4  // Original scaling + pre-boss mob waves, 3 credits (see story.j
 <a name="music"></a>
 ## 5. Music Engine
 
-The music is fully procedural chiptune generated at runtime by a seeded
-composition system. No audio files are used for BGM.
+The score is generated at runtime by a stage-aware procedural composer in
+`music.js`. No audio files are used for BGM. Every boss has a deterministic,
+unique theme derived from its `bgmSeed`/`bgmTempo`, inside the sound-world of
+its stage.
+
+Style touchstones are broad genre references rather than quoted material:
+ZUN's modal, hook-driven melodies; beatMARIO's driving eurobeat; Demetori's
+metallic double-kick riffs; Alstroemeria Records trance; SOUND HOLIC's
+rock/electronic hybrids; FELT's reverb-heavy atmosphere; EastNewSound and
+ShibayanRecords textures. All note data is original and generated per seed.
+
+### Stage Sound-Worlds
+
+| Route | Palette | Modes | Drum feel | Character |
+|-------|---------|-------|-----------|-----------|
+| S1 | Nocturne | aeolian/dorian | half-time rock | mysterious, swaying |
+| S2 | Rainfall | dorian/aeolian | breakbeat | flowing, rainy, seventh chords |
+| S3 | Radiance | ionian/lydian/mixolydian | four-on-floor | bright, uplifting trance |
+| S4 | Fog | phrygian/aeolian | half-time industrial | dissonant, heavy dread |
+| S5 | Underworld | harmonic/phrygian dominant | metal double-kick | aggressive, fiery |
+| S6 | Astral | harmonic/aeolian | four-on-floor | cosmic finale, wide pads |
+| EX | Reverie | lydian/mixolydian/dorian | breakbeat | dreamlike, off-kilter |
+| EXA | Void | phrygian dominant/harmonic | metal | monochrome, maximal chaos |
+
+Boss seeds select a root offset, mode, 8-bar progression, lead waveform,
+16-step rhythm masks and melodic contours within that palette. The result is a
+shared stage identity with 44 distinct boss themes (verified unique in tests).
+Stage music plays during waves and route travel; the boss theme starts on
+boss entry and intensifies per spell card.
+
+### Track Structure
+
+- **16-bar loop** (`bar = floor(step/16) % 16`) with 4-bar sections.
+- **Lead phrases**: 8 bars of motif A, then 8 bars of motif B, built from
+  in-key scale degrees against each chord (chord tones and passing tones).
+- **Arrangement gating**: intro groove first, lead in the second section,
+  counter-melody and 16th hats at high phase, tom/snare fills every 4 bars,
+  stage breakdown at bar 7.
+- **Spell phases**: `startBossBgm(def, phase)` advances arrangement energy.
+  Phase 1 (first spell) opens the lead; phase 2 (later/final spells) adds
+  counter-lines and sparkle. The theme itself never swaps mid-boss.
 
 ### Architecture
 
 ```
-Music.build(seed)     → generates deterministic config (key, tempo, progression,
-                        drum pattern, motif rhythm, waveforms)
-Music.tick()          → lookahead scheduler (25ms interval, 240ms buffer)
-Music.scheduleStep()  → synthesizes one 16th note using WebAudio nodes
+Music.buildBoss(def, phase)   → deterministic per-boss config + 16-bar score
+Music.buildStage(route)       → stage palette track for waves/route travel
+Music.tick()                  → lookahead scheduler (40ms interval, 240ms buffer)
+Music.scheduleStep()          → synthesizes one 16th note with WebAudio nodes
+startBossBgm / startStageBgm  → track switching (step and clock reset)
+startTitleBgm / stopBgm       → menus and results
 ```
-
-### Composition System
-
-Each track is built from:
-
-- **Harmonic progression**: minor-key chord sequences (i–VI–III–VII etc.)
-  with raised leading tone (harmonic minor dominant)
-- **Motif rhythm**: a seeded 16-step boolean mask repeated identically across
-  chords — repetition creates melodic hooks
-- **Voice leading**: lead notes chosen from current chord tones nearest to the
-  previous note, constrained to the harmonic minor scale
-- **Arrangement gating**: bars 0–1 are drums+bass only; arp joins at bar 2;
-  lead enters at bar 4; bar 7 breaks down (drums drop, snare roll fill)
 
 ### Synthesis Voices
 
 | Voice | Technique | Used for |
 |-------|-----------|----------|
-| Lead | Dual detuned pulse waves (25% duty via Fourier periodic wave), vibrato LFO, feedback-delay echo send | Melody |
-| Bass | Sawtooth through lowpass filter (static 320Hz cutoff), short envelope | Root notes |
-| Arp | Square wave pluck, fast decay | Chord arpeggios |
-| Pad | Soft square chord stabs at phrase boundaries | Harmonic glue |
-| Kick | Pitch-swept sine (155Hz → 44Hz) | Pulse |
-| Snare | Bandpassed noise burst + body tone | Backbeat |
-| Hat | Highpassed noise micro-bursts | Offbeat texture |
-| Crash | Long highpass noise swell | Phrase boundary accent |
+| Lead | Two detuned oscillators (pulse25/square/saw/triangle) → lowpass sweep → feedback-delay echo | Melody |
+| Pad | Six detuned triangle/saw voices → 1.5kHz lowpass, slow attack | Harmonic glue |
+| Bass | Sawtooth + sine sub-octave through resonant lowpass envelope | Low end |
+| Arp | Plucked wave (8th notes, 16ths at high phase) | Chord motion |
+| Kick | Pitch-swept sine (155Hz → 44Hz); extra 16ths for metal | Pulse |
+| Snare | Bandpassed noise burst + triangle body | Backbeat |
+| Hat / open hat | Highpassed noise micro-bursts | Offbeat texture |
+| Toms | Pitch-dropped sines in 4-bar fills | Transitions |
+| Crash | Long highpass noise swell | Section accents |
 
 All voices connect through a shared gain node → compressor → master output.
-A separate echo bus (delay + feedback + highpass) adds spatial depth to the
-lead voice.
-
-### Intensity Layering
-
-When a boss activates a spell card (`BOSS.spellActive`), intensity rises to
-level 2, unlocking: lead melody on all bars, denser arpeggios, pad octave
-doubling, and extra percussion. When the spell ends, layers drop back.
+A separate echo bus (delay + feedback + highpass) adds spatial depth; delay
+time follows the theme BPM.
 
 ---
 
@@ -540,6 +564,7 @@ is ignored by `.gitignore`). Validate changes with syntax checks:
 ```
 node --check engine.js
 node --check audio.js
+node --check music.js
 node --check player.js
 node --check boss.js
 node --check story.js
@@ -561,6 +586,8 @@ Manual regression checklist:
 - 1CC death reaches results marked 1CC FAILED.
 - Story wave clears into the boss with no leftover bullets.
 - Title BGM restarts after results or quitting from pause.
+- Each boss starts its own theme; spell cards intensify the same theme rather
+  than swapping tracks; stage music returns on story waves and route changes.
 - Settings/help open from the title (S/H) and pause, and persist after reload.
 - Flash bomb fires only when the gauge is full; C always casts a spell.
 - Touch: title, difficulty, stage grid, settings, help, pause, game over, and
@@ -674,9 +701,9 @@ All sprite usage has vector fallbacks for headless testing.
 - **Fixed resolution**: 640×480 internal, scaled by CSS. No widescreen support.
   On phones, landscape uses most of the screen; portrait is letterboxed and
   prompts rotation, though the game remains playable if skipped.
-- **Procedural music limitations**: The seeded composer cannot produce
-  structured songs (verse/chorus) — it generates evolving loops within
-  harmonic constraints.
+- **Procedural music limitations**: Themes follow 16-bar loops with
+  intro/lead/climax sections and spell-card phases, but there is no authored
+  intro/outro or live performance variation — the loop is the song.
 - **Modes are exclusive**: Story and 1CC cannot be combined — Story always
   runs at Original scaling with 3 credits.
 - **Fixed story waves**: every pre-boss wave uses the same 14-mob composition

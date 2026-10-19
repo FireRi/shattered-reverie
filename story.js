@@ -178,6 +178,8 @@ function startStoryWave(){
  if(G.wave||BOSS)return;
  G.wave={queue:buildStoryQueue(),idx:0,spawnT:10,startPower:PL.power,powerSpawned:0,kills:0};
  addText(W/2,180,'STORY WAVE','#8fdfff',20,70);
+ const _r=ROUTES[G.routeQueue[G.routeIdx]];
+ if(_r)startStageBgm(_r);
 }
 function updateStoryWave(){
  const w=G.wave;

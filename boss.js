@@ -69,10 +69,11 @@ function startBoss(def,onDone){
   timer:0,hp:0,maxHp:0,hpDisp:1,atk:null,gen:null,rate:.07,dying:0,onDone,moveT:0,idleA:rnd(TAU),
   cutin:0,cutinName:'',cutinCol:def.col,spellActive:false,leftInRoute:def.leftInRoute||1,
   dlg:(typeof DIALOGS!=='undefined'&&DIALOGS[def.id])?DIALOGS[def.id]:defaultDialog(def),
-  dgi:0,dShown:0,dT:0};
+  dgi:0,dShown:0,dT:0,musicPhase:0};
  clearBullets(true);
  PL.inv=Math.max(PL.inv,60);
  sfx('bosswalk');
+ startBossBgm(def,0);
 }
 function bossNextAttack(){
  BOSS.idx++;
@@ -86,7 +87,8 @@ function bossNextAttack(){
  if(A.n){
   G.spellsPlayed++;BOSS.cutin=110;BOSS.cutinName=A.n;BOSS.cutinCol=A.col||BOSS.col;
   sfx('declare');screenFlash(.35,'#fff');
-  startBgm(BOSS.def.bgmSeed+A.idx*97);
+  BOSS.musicPhase=Math.min(2,(BOSS.musicPhase||0)+1);
+  startBossBgm(BOSS.def,BOSS.musicPhase);
  }
  clearBullets(true);
  G.spellBombUsed=false;
