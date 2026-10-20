@@ -9,8 +9,8 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last mobile-overhaul commit:** `e50a9ba Move mobile controls outside the canvas and improve fitting` (pushed).
-- **Current uncommitted work:** sci-fi UI/status overhaul, multi-line boss banter rehaul, and this `AGENTS.md` context file.
+- **Last feature commit:** `a5f5d78 Overhaul UI and boss dialogue` (pushed).
+- **Current uncommitted work:** no intentional content changes; only line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md`.
 
 ## Run And Verify
 
@@ -104,7 +104,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 ## Git And Working Tree Rules
 
 - **Do not commit or push unless the user explicitly asks.**
-- The prior "push it" instruction applied to the mobile overhaul commit `e50a9ba`; current UI/context changes are not included.
+- The UI/status and boss-dialogue overhaul was committed and pushed as `a5f5d78`.
 - Before any future commit, inspect `git status` and `git diff`; stage only intended files.
 - Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`, `p4.js`, `p5.js`, `p6.js`, `pex.js`, `pexa.js`.
 - `api/generate-dialog.js`, `boss.js`, `main.js`, and `index.html` have intentional content changes for the dialogue/UI work; git may still warn about LF→CRLF normalization.
@@ -129,7 +129,7 @@ Current verification state:
 - All JavaScript files pass `node --check`; `api-check.mjs` validates a mocked Groq generation.
 - Desktop 20/20 and touch 32/32 smoke suites pass.
 - Screenshots rechecked, including desktop/touch dialogue, boss HUD, game over, results, landscape, and portrait deck.
-- `dialogue.js` is new/untracked; `boss.js`, `main.js`, `index.html`, `api/generate-dialog.js`, `README.md`, and `AGENTS.md` are modified but uncommitted.
+- UI/dialogue work is committed and pushed as `a5f5d78`; the working tree has no intentional content changes.
 - Real-device touch/fullscreen behavior and a live Groq key still need manual validation.
 
 Next steps:
