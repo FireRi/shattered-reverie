@@ -35,6 +35,7 @@ index.html
   ├── audio.js       SFX synthesis + music volume buses
   ├── music.js       Per-stage/boss procedural score generator
   ├── player.js      Player ship, shots, bombs, graze
+  ├── dialogue.js    Boss banter profiles, AI cache, validation
   ├── boss.js        Boss state machine + shared context API
   ├── story.js       Story-mode trash mobs + wave control
   ├── render.js      All canvas drawing (bullets, mobs, FX, HUD helpers)
@@ -52,8 +53,8 @@ index.html
 The dependency chain is:
 
 ```
-engine.js  →  audio  →  music  →  player/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  boot.js
-(core)       (sfx)     (score)     (systems + content helpers)      (S1–3)      (more bosses)            (state machine)  (env)
+engine.js  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  boot.js
+(core)       (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -268,6 +269,22 @@ frame. When a generator completes (returns), the engine restarts it from the
 beginning — making every pattern infinitely loopable without explicit wrapping.
 This is intentional: attack termination is governed by HP depletion or timer
 expiry, never by generator exhaustion.
+
+#### Boss dialogue
+
+Every boss ID has a four-line local exchange in `dialogue.js`, alternating
+boss, player, boss, player. The exchanges are written per character using the
+boss voice and signature spell imagery; `defaultDialog()` only supplies a
+fallback if a profile is missing.
+
+When AI dialogue is enabled, `main.js` prefetches the current and next boss
+from `/api/generate-dialog`. Valid responses are cached per boss and preferred
+over the local lines. A response is applied only while the boss is entering, so
+late replies never rewrite a line already on screen. Missing keys, rate limits,
+invalid JSON, and malformed speakers all fall back silently to local banter.
+The API asks Groq for four alternating JSON lines and prefers
+`llama-3.3-70b-versatile`, retrying with `llama-3.1-8b-instant`.
+It requires `GROQ_API_KEY`; `GROQ_MODEL` can override the preferred model.
 
 ### 3.4 Player Systems
 
@@ -580,6 +597,7 @@ node --check engine.js
 node --check audio.js
 node --check music.js
 node --check player.js
+node --check dialogue.js
 node --check boss.js
 node --check story.js
 node --check render.js
@@ -590,6 +608,7 @@ node --check p6.js
 node --check pex.js
 node --check pexa.js
 node --check main.js
+node --check api/generate-dialog.js
 ```
 
 Manual regression checklist:
@@ -599,6 +618,7 @@ Manual regression checklist:
 - Pause → Restart Stage confirms, spends one credit, and ends 1CC eligibility.
 - 1CC death reaches results marked 1CC FAILED.
 - Story wave clears into the boss with no leftover bullets.
+- Boss dialogue shows four alternating lines; AI-off and API-failure paths use local banter.
 - Title BGM restarts after results or quitting from pause.
 - Each boss starts its own theme; spell cards intensify the same theme rather
   than swapping tracks; stage music returns on story waves and route changes.

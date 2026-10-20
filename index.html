@@ -12,7 +12,7 @@
 html,body{width:100%;height:100%;background:#000;overflow:hidden;position:fixed;inset:0;overscroll-behavior:none;
  touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 #wrap{position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}
-#cv{display:block;background:#000;touch-action:none}
+#cv{display:block;background:#000;touch-action:none;image-rendering:pixelated}
 #hint{position:fixed;left:8px;bottom:6px;color:#7a86a8;font:15px 'VT323R',monospace;
  pointer-events:none;z-index:5;line-height:1.3}
 #hint .mob{display:none}
@@ -28,13 +28,23 @@ body.touch #hint{display:none}
  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
 #pad .padControl{position:absolute;display:none;align-items:center;justify-content:center;
  text-align:center;color:#dff;background:rgba(8,16,30,.72);border:2px solid rgba(127,223,255,.75);
- border-radius:50%;box-shadow:0 0 12px rgba(80,180,255,.18);pointer-events:auto;touch-action:none;
- -webkit-user-select:none;user-select:none;line-height:1;letter-spacing:1px;overflow:hidden}
-#padStick{background:rgba(8,16,30,.5);border-color:rgba(127,223,255,.55)}
-#padStick.active{background:rgba(10,24,44,.78);border-color:#dff}
+ border-radius:50%;box-shadow:0 0 14px rgba(80,180,255,.22),inset 0 0 0 4px rgba(3,9,18,.38),
+ inset 0 0 18px rgba(80,200,255,.12);pointer-events:auto;touch-action:none;
+ -webkit-user-select:none;user-select:none;line-height:1;letter-spacing:0;overflow:hidden;
+ font-weight:700;text-shadow:0 0 6px currentColor}
+#pad .padControl::before{content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none;
+ background:repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px)}
+#pad .padControl::after{content:'';position:absolute;inset:5px;border-radius:50%;pointer-events:none;
+ border:1px solid rgba(160,240,255,.18)}
+#padStick{background:repeating-conic-gradient(from 0deg,rgba(127,223,255,.20) 0 2deg,transparent 2deg 30deg),
+ radial-gradient(circle,rgba(8,20,36,.74) 0 48%,rgba(6,14,26,.44) 49% 100%);
+ border-color:rgba(127,223,255,.55)}
+#padStick.active{background:repeating-conic-gradient(from 0deg,rgba(190,250,255,.35) 0 2deg,transparent 2deg 30deg),
+ radial-gradient(circle,rgba(12,34,58,.82) 0 48%,rgba(8,20,36,.55) 49% 100%);border-color:#dff}
 #padKnob{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:42%;height:42%;
- border-radius:50%;background:rgba(120,200,255,.45);border:1.5px solid #dff;
- box-shadow:0 0 10px rgba(120,200,255,.5);pointer-events:none}
+ border-radius:50%;background:radial-gradient(circle at 38% 32%,rgba(220,255,255,.65),rgba(90,190,255,.4) 45%,rgba(20,80,130,.55));
+ border:1.5px solid #dff;box-shadow:0 0 14px rgba(120,200,255,.6),inset 0 0 8px rgba(255,255,255,.35);
+ pointer-events:none}
 #padFire{border-color:#ff9fb0;color:#ffd7dd;background:rgba(40,10,20,.72)}
 #padBomb{border-color:#8fd8ff;color:#dff;background:rgba(8,22,40,.72)}
 #padSpell{border-color:#c8a0ff;color:#eadcff;background:rgba(24,10,40,.72)}
@@ -71,6 +81,7 @@ body.touch #hint{display:none}
 <script src="audio.js"></script>
 <script src="music.js"></script>
 <script src="player.js"></script>
+<script src="dialogue.js"></script>
 <script src="boss.js"></script>
 <script src="story.js"></script>
 <script src="render.js"></script>

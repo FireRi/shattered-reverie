@@ -59,16 +59,21 @@ function updateDemoMovement(){
  PL.tilt=((mvx>1)-(mvx<-1))*.2;
 }
 
-const BOSS_BANTERS=['So, the intruder finally arrives.','You reek of confidence, little spark.','This sky answers to us, not you.','Heh. Keep up if you can.','Another challenger? How fleeting.'];
-const PL_BANTERS=['I was about to say the same.','Talk less. Dodge more.','Then watch closely.','Save the speech for your defeat.'];
 function defaultDialog(def){
- return [['b',pick(BOSS_BANTERS)],['p',pick(PL_BANTERS)],['b',`By the rights of this reverie, ${def.name} will not fall.`]];
+ if(typeof getBossBanter==='function')return getBossBanter(def);
+ const name=def.name||'This guardian';
+ return [
+  ['b',`${name} has been waiting for someone foolish enough to reach this boundary.`],
+  ['p','Then I hope the wait was worth it.'],
+  ['b','It will be. I have prepared a very personal welcome.'],
+  ['p','Good. I hate generic hospitality.']
+ ];
 }
 function startBoss(def,onDone){
  BOSS={def,name:def.name,col:def.col,x:W/2,y:-60,tx:W/2,ty:110,idx:-1,state:'enter',t:0,warnT:96,
   timer:0,hp:0,maxHp:0,hpDisp:1,atk:null,gen:null,rate:.07,dying:0,onDone,moveT:0,idleA:rnd(TAU),
   cutin:0,cutinName:'',cutinCol:def.col,spellActive:false,leftInRoute:def.leftInRoute||1,
-  dlg:(typeof DIALOGS!=='undefined'&&DIALOGS[def.id])?DIALOGS[def.id]:defaultDialog(def),
+  dlg:defaultDialog(def),
   dgi:0,dShown:0,dT:0,musicPhase:0};
  clearBullets(true);
  PL.inv=Math.max(PL.inv,60);
