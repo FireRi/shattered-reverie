@@ -9,8 +9,8 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last feature commit:** `a5f5d78 Overhaul UI and boss dialogue` (pushed).
-- **Current uncommitted work:** game scripts moved into `js/`, with `index.html` and documentation paths updated; line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md` remain.
+- **Last feature commit:** `7cfd061 Organize game scripts under js` (pushed).
+- **Current uncommitted work:** no intentional content changes; only line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md`.
 
 ## Run And Verify
 
@@ -106,10 +106,10 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 ## Git And Working Tree Rules
 
 - **Do not commit or push unless the user explicitly asks.**
-- The UI/status and boss-dialogue overhaul was committed and pushed as `a5f5d78`.
+- The UI/status and boss-dialogue overhaul was committed and pushed as `a5f5d78`; the `js/` organization followed as `7cfd061`.
 - Before any future commit, inspect `git status` and `git diff`; stage only intended files.
 - Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`, `js/p4.js`, `js/p5.js`, `js/p6.js`, `js/pex.js`, `js/pexa.js`.
-- The dialogue/UI changes were committed as `a5f5d78`; the current folder move updates `index.html`, `README.md`, and `AGENTS.md`.
+- The dialogue/UI changes were committed as `a5f5d78`; the folder move was committed as `7cfd061`.
 - `DOCUMENTATION.md` is a stale untracked duplicate; leave it unstaged unless the user asks to update/remove it.
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
@@ -132,13 +132,12 @@ Current verification state:
 - All JavaScript files pass `node --check`; `api-check.mjs` validates a mocked Groq generation.
 - Desktop 20/20 and touch 32/32 smoke suites pass.
 - Screenshots rechecked, including desktop/touch dialogue, boss HUD, game over, results, landscape, and portrait deck.
-- UI/dialogue work is committed and pushed as `a5f5d78`; game scripts are now organized under `js/` (move not yet committed).
+- UI/dialogue work is committed and pushed as `a5f5d78`; game scripts are now organized under `js/` and committed as `7cfd061`.
 - Real-device touch/fullscreen behavior and a live Groq key still need manual validation.
 
 Next steps:
 
-1. Review the uncommitted `js/` move; commit only when the user asks.
-2. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
-3. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
-4. Create a portable test harness only if the temporary one is likely to be lost.
-5. Await explicit user permission before committing or pushing.
+1. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
+2. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
+3. Create a portable test harness only if the temporary one is likely to be lost.
+4. Await explicit user permission before committing or pushing.
