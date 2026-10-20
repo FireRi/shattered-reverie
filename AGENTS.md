@@ -7,10 +7,10 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Game:** Shattered Reverie (working folder: `Len'en All-Star Reborn`), an original browser-based vertical danmaku game and Len'en tribute.
 - **Stack:** Plain JavaScript, HTML, CSS, Canvas 2D, Web Audio. No framework, bundler, build step, or runtime package manager.
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
-- **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `boot.js`.
+- **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
 - **Last feature commit:** `a5f5d78 Overhaul UI and boss dialogue` (pushed).
-- **Current uncommitted work:** no intentional content changes; only line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md`.
+- **Current uncommitted work:** game scripts moved into `js/`, with `index.html` and documentation paths updated; line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md` remain.
 
 ## Run And Verify
 
@@ -19,7 +19,7 @@ Serve the directory with any static server so `fetch()` assets and `/api/generat
 Useful checks on Windows PowerShell:
 
 ```powershell
-Get-ChildItem -Filter *.js | ForEach-Object { node --check $_.FullName }
+Get-ChildItem js -Filter *.js | ForEach-Object { node --check $_.FullName }; node --check api/generate-dialog.js
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"; Remove-Item Env:TOUCH
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\padcheck.js"
@@ -49,25 +49,27 @@ The smoke/pad/screenshot harnesses are temporary, not committed. Add a portable 
 Load order matters. Do not reorder `index.html` scripts.
 
 ```
-engine.js     constants, IS_TOUCH, input, pools, shared state, TouchUI
-audio.js      Web Audio buses, SFX synthesis, volume persistence
-music.js      procedural stage/boss score generator
-player.js     player, shots, bombs, graze, movement
-dialogue.js   44 boss banter profiles, AI cache, validation, fallbacks
-boss.js       boss lifecycle and shared boss context API
-story.js      story-mode mobs and wave control
-render.js     gameplay sprites, bullets, effects, low-level drawing
-patterns.js   stage 1-3 boss patterns and shared pattern helpers
-p4.js p5.js p6.js pex.js pexa.js
-main.js       game state machine, menus, HUD, route flow, UI kit
-boot.js       viewport fitting, DOM touch pad, fullscreen, canvas tap zones
+js/engine.js     constants, IS_TOUCH, input, pools, shared state, TouchUI
+js/audio.js      Web Audio buses, SFX synthesis, volume persistence
+js/music.js      procedural stage/boss score generator
+js/player.js     player, shots, bombs, graze, movement
+js/dialogue.js   44 boss banter profiles, AI cache, validation, fallbacks
+js/boss.js       boss lifecycle and shared boss context API
+js/story.js      story-mode mobs and wave control
+js/render.js     gameplay sprites, bullets, effects, low-level drawing
+js/patterns.js   stage 1-3 boss patterns and shared pattern helpers
+js/p4.js js/p5.js js/p6.js js/pex.js js/pexa.js
+js/main.js       game state machine, menus, HUD, route flow, UI kit
+js/boot.js       viewport fitting, DOM touch pad, fullscreen, canvas tap zones
 ```
 
+All game scripts live in `js/`. `index.html` stays at the repository root; `api/` must stay at the root for Vercel.
+
 - All cross-file communication is through globals. Shared state includes `G`, `PL`, `BOSS`, `eshots`, `mobs`, `ROUTES`, and `settings`.
-- `IS_TOUCH` is defined in `engine.js:18`; `boot.js` reads it to apply `body.touch` and pad layout.
-- `TouchUI` zones are registered by drawing code and resolved by `boot.js` in reverse draw order.
+- `IS_TOUCH` is defined in `js/engine.js:18`; `js/boot.js` reads it to apply `body.touch` and pad layout.
+- `TouchUI` zones are registered by drawing code and resolved by `js/boot.js` in reverse draw order.
 - `TouchPad` is the external DOM pad API: `sync`, `release`, `fireDown`, `fireUp`, `bomb`, `spell`, `focus`, `pause`, `stick`, `endStick`, `fullscreen`, `fit`.
-- Touch pad markup lives in `index.html`; geometry and safe-area placement live in `boot.js` (`layoutPad`, `fit`). Pad visuals live in `index.html` CSS.
+- Touch pad markup lives in `index.html`; geometry and safe-area placement live in `js/boot.js` (`layoutPad`, `fit`). Pad visuals live in `index.html` CSS.
 - `TouchPad.fullscreen` toggles document fullscreen; the `#padFull` button is hidden when unsupported. iOS lacks document fullscreen/orientation lock.
 
 ## Gameplay And State
@@ -75,14 +77,14 @@ boot.js       viewport fitting, DOM touch pad, fullscreen, canvas tap zones
 - Screens include: `title`, `diff`, `sel`, `settings`, `help`, `play`, `pause`, `gameover`, `result`, `demo`.
 - Story mode uses waves and three credits; 1CC mode uses one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
 - Save keys include `lasr_hi`, `lasr_diff`, `lasr_settings`, `lasr_mute`, `lasr_mvol`, and `lasr_svol`.
-- Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
+- Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
 - Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause, S settings, H help, A autofire, M mute, `-`/`+` music.
 
 ## UI System
 
 The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Keep gameplay readable; do not let decorative panels hide bullets or the player for long.
 
-- Core palette and helpers are in `main.js`: `UI`, `uiPanel`, `uiTile`, `uiSegBar`, `uiTicks`, `uiCursor`, `uiTag`, `uiKeyCap`, `pixelTitle`, `drawTitleGrid`, `drawMenuGrid`, `drawCRT`.
+- Core palette and helpers are in `js/main.js`: `UI`, `uiPanel`, `uiTile`, `uiSegBar`, `uiTicks`, `uiCursor`, `uiTag`, `uiKeyCap`, `pixelTitle`, `drawTitleGrid`, `drawMenuGrid`, `drawCRT`.
 - Fonts: `Pixel8` for headings/values, `VT323R` for body copy. Use integer font sizes and canvas coordinates where possible.
 - `drawScreen()` calls `drawCRT()` before `TouchPad.sync()`. The overlay adds scanlines, a moving band, vignette, and edge lines.
 - `menuFrame`, `bigTitle`, `drawTitle`, `blinkText`, and `touchBtn` define the shared title/menu/proceed language.
@@ -106,8 +108,8 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - **Do not commit or push unless the user explicitly asks.**
 - The UI/status and boss-dialogue overhaul was committed and pushed as `a5f5d78`.
 - Before any future commit, inspect `git status` and `git diff`; stage only intended files.
-- Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`, `p4.js`, `p5.js`, `p6.js`, `pex.js`, `pexa.js`.
-- `api/generate-dialog.js`, `boss.js`, `main.js`, and `index.html` have intentional content changes for the dialogue/UI work; git may still warn about LF→CRLF normalization.
+- Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`, `js/p4.js`, `js/p5.js`, `js/p6.js`, `js/pex.js`, `js/pexa.js`.
+- The dialogue/UI changes were committed as `a5f5d78`; the current folder move updates `index.html`, `README.md`, and `AGENTS.md`.
 - `DOCUMENTATION.md` is a stale untracked duplicate; leave it unstaged unless the user asks to update/remove it.
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
@@ -121,20 +123,22 @@ Completed:
 - Screenshot review on desktop, landscape touch, and portrait touch. No overlap or clipping blockers found.
 - Final polish: widened/centered title deploy panel, always-readable blink text, help `clear + damage` spacing, gameover footer, result prompt position, and larger difficulty description.
 - Moved player status out of the lower play area into a compact top-left telemetry rail; touch route tag moved to bottom-left.
-- Boss banter rehaul: `dialogue.js` now has distinct four-line exchanges and voice notes for all 44 boss IDs, replacing the mismatched `DIALOGS` table and generic fallback.
+- Boss banter rehaul: `js/dialogue.js` now has distinct four-line exchanges and voice notes for all 44 boss IDs, replacing the mismatched `DIALOGS` table and generic fallback.
 - AI dialogue now prefetches the current and next boss, caches valid four-line responses, validates speakers, applies only during entry, and falls back silently. The API prefers `llama-3.3-70b-versatile` with an 8B retry.
+- Repository organization: all 16 game scripts now live in `js/`; `index.html` script paths, the README tree, and test commands were updated.
 
 Current verification state:
 
 - All JavaScript files pass `node --check`; `api-check.mjs` validates a mocked Groq generation.
 - Desktop 20/20 and touch 32/32 smoke suites pass.
 - Screenshots rechecked, including desktop/touch dialogue, boss HUD, game over, results, landscape, and portrait deck.
-- UI/dialogue work is committed and pushed as `a5f5d78`; the working tree has no intentional content changes.
+- UI/dialogue work is committed and pushed as `a5f5d78`; game scripts are now organized under `js/` (move not yet committed).
 - Real-device touch/fullscreen behavior and a live Groq key still need manual validation.
 
 Next steps:
 
-1. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
-2. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
-3. Create a portable test harness only if the temporary one is likely to be lost.
-4. Await explicit user permission before committing or pushing.
+1. Review the uncommitted `js/` move; commit only when the user asks.
+2. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
+3. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
+4. Create a portable test harness only if the temporary one is likely to be lost.
+5. Await explicit user permission before committing or pushing.

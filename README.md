@@ -27,27 +27,35 @@ No frameworks, no build tools, no external dependencies at runtime.
 The game runs as plain JavaScript in the browser using a single `<canvas>`
 element for all rendering and the Web Audio API for procedural sound synthesis
 and music playback. There is no framework, no bundler, no transpilation step.
-Every file is loaded via `<script>` tags in `index.html` in a specific order.
+Every game script is loaded via `<script>` tags in `index.html` in a specific order.
 
 ```
 index.html
-  ├── engine.js      Core systems (loaded first, defines globals)
-  ├── audio.js       SFX synthesis + music volume buses
-  ├── music.js       Per-stage/boss procedural score generator
-  ├── player.js      Player ship, shots, bombs, graze
-  ├── dialogue.js    Boss banter profiles, AI cache, validation
-  ├── boss.js        Boss state machine + shared context API
-  ├── story.js       Story-mode trash mobs + wave control
-  ├── render.js      All canvas drawing (bullets, mobs, FX, HUD helpers)
-  ├── patterns.js    Stage 1–3 boss patterns + shared helpers
-  ├── p4.js          Stage 4 bosses
-  ├── p5.js          Stage 5 bosses
-  ├── p6.js          Stage 6 bosses
-  ├── pex.js         Extra stage bosses
-  ├── pexa.js        Extra+a bosses + route definitions
-  ├── main.js        Game state machine, menus, HUD, route flow
-  └── boot.js        Viewport fitting + DOM touch pad + canvas tap zones
+  ├── js/
+  │   ├── engine.js      Core systems (loaded first, defines globals)
+  │   ├── audio.js       SFX synthesis + music volume buses
+  │   ├── music.js       Per-stage/boss procedural score generator
+  │   ├── player.js      Player ship, shots, bombs, graze
+  │   ├── dialogue.js    Boss banter profiles, AI cache, validation
+  │   ├── boss.js        Boss state machine + shared context API
+  │   ├── story.js       Story-mode trash mobs + wave control
+  │   ├── render.js      All canvas drawing (bullets, mobs, FX, HUD helpers)
+  │   ├── patterns.js    Stage 1–3 boss patterns + shared helpers
+  │   ├── p4.js          Stage 4 bosses
+  │   ├── p5.js          Stage 5 bosses
+  │   ├── p6.js          Stage 6 bosses
+  │   ├── pex.js         Extra stage bosses
+  │   ├── pexa.js        Extra+a bosses + route definitions
+  │   ├── main.js        Game state machine, menus, HUD, route flow
+  │   └── boot.js        Viewport fitting + DOM touch pad + canvas tap zones
+  ├── api/
+  │   └── generate-dialog.js
+  ├── assets/sfx/        Sound effects
+  ├── fonts/            UI fonts + licenses
+  └── gfx/              Sprite and background art
 ```
+
+All game code lives in `js/`; the entry point, Vercel API, and static assets stay at the root.
 
 **Load order matters.** Each file builds on globals defined by previous files.
 The dependency chain is:
@@ -66,7 +74,7 @@ are callable from any later file. Shared mutable state (`G`, `PL`, `BOSS`,
 <a name="files"></a>
 ## 2. File Structure
 
-### engine.js
+### js/engine.js
 
 The foundation layer. Contains everything that must exist before any content:
 
@@ -86,7 +94,7 @@ The foundation layer. Contains everything that must exist before any content:
 | Laser system | Telegraphed straight-line hazards with warm-up/active/fade states |
 | Effects (`render.js`) | Ring, spark, shard, trail, puff, crescent, bloom, beam, seigaiha overlay |
 
-### patterns.js + p4–pexa.js
+### js/patterns.js + js/p4–pexa.js
 
 Pure content files. Each exports nothing — they call `registerBoss()` to add
 entries into the shared `BOSS_DEFS` object, which `main.js` reads for route
@@ -113,7 +121,7 @@ function*myBossN1(b){
 }
 ```
 
-### story.js
+### js/story.js
 
 Story-mode trash mobs plus the wave controller. Active only when `G.story`
 is true (selected from the difficulty menu).
@@ -130,7 +138,7 @@ Mobs plug into the existing combat: player shots, beam, homing options, spell
 ray, deathbomb and flash bomb all damage them (`damageMob` / `killMob`), and
 body contact kills the player like a boss collision.
 
-### main.js
+### js/main.js
 
 Game state machine, screen renderer, HUD, menus, results screen, music-reactive
 visuals, and the requestAnimationFrame loop.
@@ -593,21 +601,22 @@ The historical `_smoke.js` harness is not included in this checkout (the file
 is ignored by `.gitignore`). Validate changes with syntax checks:
 
 ```
-node --check engine.js
-node --check audio.js
-node --check music.js
-node --check player.js
-node --check dialogue.js
-node --check boss.js
-node --check story.js
-node --check render.js
-node --check patterns.js
-node --check p4.js
-node --check p5.js
-node --check p6.js
-node --check pex.js
-node --check pexa.js
-node --check main.js
+node --check js/engine.js
+node --check js/audio.js
+node --check js/music.js
+node --check js/player.js
+node --check js/dialogue.js
+node --check js/boss.js
+node --check js/story.js
+node --check js/render.js
+node --check js/patterns.js
+node --check js/p4.js
+node --check js/p5.js
+node --check js/p6.js
+node --check js/pex.js
+node --check js/pexa.js
+node --check js/main.js
+node --check js/boot.js
 node --check api/generate-dialog.js
 ```
 
