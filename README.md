@@ -47,6 +47,7 @@ index.html
   │   ├── pex.js         Extra stage bosses
   │   ├── pexa.js        Extra+a bosses + route definitions
   │   ├── main.js        Game state machine, menus, HUD, route flow
+  │   ├── cabinet.js     Desktop cabinet HUD telemetry + route art
   │   └── boot.js        Viewport fitting + DOM touch pad + canvas tap zones
   ├── api/
   │   └── generate-dialog.js
@@ -61,8 +62,8 @@ All game code lives in `js/`; the entry point, Vercel API, and static assets sta
 The dependency chain is:
 
 ```
-engine.js  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  boot.js
-(core)       (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (env)
+engine.js  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
+(core)       (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -92,7 +93,7 @@ The foundation layer. Contains everything that must exist before any content:
 | Boss framework (`boss.js`) | State machine (enter→dialog→fight→rest), attack lifecycle, damage rates |
 | Item system | Spawning, magnet collection, floor expiry (P/B/L/S/K/O — O feeds the OD meter) |
 | Laser system | Telegraphed straight-line hazards with warm-up/active/fade states |
-| Effects (`render.js`) | Ring, spark, shard, trail, puff, crescent, bloom, beam, seigaiha overlay |
+| Effects (`render.js`) | Ring, spark, shard, trail, puff, crescent, bloom, beam, dice, seigaiha overlay |
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -172,6 +173,24 @@ title → diff → sel → play ⇄ pause
 Persistence: `lasr_hi`, `lasr_diff`, `lasr_mvol`, `lasr_svol`, `lasr_mute`, and
 `lasr_settings` (JSON: music/SFX volume, mute, shake, bloom, flash, auto-fire,
 FPS, AI dialogue). Settings are available from the title (S) and pause menu.
+
+### js/cabinet.js
+
+Desktop-only cabinet HUD that lives in the widescreen gutters outside the
+fixed 640×480 canvas. `boot.js` marks the body `cab-eligible` when the viewport
+is non-touch, landscape, and has at least 150 CSS pixels of gutter per side;
+`CabinetUI.sync()` then marks it `cab-live` on play, pause, demo, game-over, and
+result screens. Menus and all touch/narrow layouts keep the compact in-canvas
+HUD instead.
+
+The left panel shows the current route art (via `routeBgKey()`), route number,
+sector ID, stage title, route mode, and difficulty. The right panel mirrors
+score, lives, spell stocks, power, flash, overdrive, graze, sparks, deaths,
+captured spells, wave progress, streak, and optional autofire/mute/FPS flags.
+Boss fights replace the normal in-canvas score/status/route layout with a
+compact top strip containing the boss name, HP bar, bosses remaining, timer,
+and spell banner. The cabinet layer is pointer-transparent and hidden whenever
+the compact HUD is in use.
 
 ---
 
@@ -426,7 +445,38 @@ DV(speedValue)   // scales speed by difficulty multiplier
 
 Easy mode reduces both; Absurdly All-Star increases them.
 
-### 4.3 Difficulty System
+### 4.3 Boss Identity Pass
+
+Every one of the 44 bosses now has at least one signature mechanic layered
+onto its original role. The pass favors readable, character-specific
+formations over raw density: a mechanic should describe who the boss is and
+leave a deliberate route through the screen.
+
+| Route | Bosses | Signature beats |
+|-------|--------|-----------------|
+| S1 | Kurohebi, Jun, Souko, Mitsumo | Wake body, tracked geysers and rain walls, exploding seals, centipede legs |
+| S2 | Aoji, Shou, Tsugumi, Medias, Kujiru | Whirl vortices, traffic lanes, dash walls, bouncing prisms, slime towers |
+| S3 | Lumen, Iyozane, Ooya, Kaisen, Sese | Splitting prisms, reanimating soldiers, cross-slashes, lucky coins, eruptions |
+| S4 | Hooaka, Hibaru, Kaoru, Garaiya | Divider color split, candlestick columns, cloud spear, three orbiting casters |
+| S5 | Kuroji, Sukune, Taira, Sanra, Para | Wing spirals, buried mines, rotating court, decoy orbs, safe-lane frame |
+| S6 | Clause, Yaorochi, Saragimaru, Shion, Mitori, Chouki | Constellations, skyfall slit, mirror/sword/jewel, three heads, red tide, stitch wall |
+| EX | Haiji, Yago, Xeno, Tenkai, Kokoro, Suzumi | Blink orbs, brush wall, dice hands, unfinished-ink frames and crane, mask orbit, remembered scars |
+| EXA | Shitodo, Preschool, Emperor, Brokenteam, Jinbei, YabusameX, Tsurubami, Suzumiex, Shrine | Chore calls, recess, commands, fractures, talents, two worlds, void, scars, soul |
+
+Wall mechanics use static `keep:true` bullets with a visible telegraph, then
+release after a short delay. Leave one safe gap or lane, or show a distinct
+opening and then seal it only after a separate forced-exit telegraph; never
+spawn an unescapable cage without warning. New patterns must respect the
+existing `fx` (300), `ftext` (40), and `eshots` (1600) caps.
+
+Tsuru Kaihou's fight is built around unfinished work. Pale draft bullets are
+harmless (`hit:false`, `grazed:true`) until they are inked orange. His frame
+spell leaves one side open, then draws the missing side in and contracts;
+his crane spell inks each body part before the unfinished head is erased and
+the finished crane takes off. The helpers are `tenSketch`, `tenInk`,
+`tenLaunch`, `tenEach`, and `tenCrane` in `js/pex.js`.
+
+### 4.4 Difficulty System
 
 ```js
 DIFF_EASY = 0   // DN×0.65, DV×0.85, boss HP×0.75
@@ -616,9 +666,21 @@ node --check js/p6.js
 node --check js/pex.js
 node --check js/pexa.js
 node --check js/main.js
+node --check js/cabinet.js
 node --check js/boot.js
 node --check api/generate-dialog.js
 ```
+
+Optional local harnesses (kept outside the repo) also exercise runtime behavior:
+
+```powershell
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\all-boss-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
+```
+
+`all-boss-check.js` runs all 44 bosses and 102 attacks, rejecting generator
+exceptions, non-finite bullets, cap overruns, and attacks that never fire.
 
 Manual regression checklist:
 - Title → difficulty → stage select → play.
@@ -633,6 +695,15 @@ Manual regression checklist:
   than swapping tracks; stage music returns on story waves and route changes.
 - Settings/help open from the title (S/H) and pause, and persist after reload.
 - Flash bomb fires only when the gauge is full; C always casts a spell.
+- Boss signature walls and frames leave a readable safe lane; no attack closes
+  all four sides around the player.
+- Desktop cabinet: at 1920×1080 and 1366×768, play/pause/result show both side
+  panels, and boss fights use the compact top strip with no duplicate in-canvas
+  score, status rail, route tag, or wave text. Left art follows the route.
+- Desktop cabinet: at 1280×960 and below the 150px gutter threshold, the panels
+  stay hidden and the compact in-canvas HUD remains intact.
+- Desktop cabinet: the keyboard hint is hidden while the cabinet is live, and
+  resizing across the breakpoint does not leave stale panels on screen.
 - Touch: the DOM joystick sits in the landscape side gutter (or the portrait
   deck) and moves the ship smoothly without teleporting; it never covers the
   playfield.

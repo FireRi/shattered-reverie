@@ -160,11 +160,11 @@ const BOSS_BANTER={
   ["p","Generous? I'll take the deed and a free drink."],
   ["b","All-in, then. Your confidence against my dice."],
   ["p","Roll them. I'll be counting from the other side of the table."]]},
- tenkai:{voice:"territorial crane warden; old-fashioned boundary pride",lines:[
-  ["b","This perch has held the sky for a thousand years. You are a very loud inconvenience."],
-  ["p","Then move over. Even cranes need to stretch."],
-  ["b","One more step and I'll fold the boundary around your ankles."],
-  ["p","Try it. I've been meaning to learn origami."]]},
+ tenkai:{voice:"crane warden of half-drawn boundaries; proud, unfinished-work perfectionist",lines:[
+  ["b","Every border here is a sketch. The crane was never finished, so I guard the missing stroke."],
+  ["p","Lend me a brush. I'll finish it myself."],
+  ["b","No. An unfinished edge is still an edge, and you are standing on it."],
+  ["p","Then I'll step into the white space."]]},
  kokoro:{voice:"mask seller and exorcist; theatrical, unsettling empathy",lines:[
   ["b","I sell faces. Yours is a little out of fashion, but I could make it honest."],
   ["p","Keep the face. I'm using it."],

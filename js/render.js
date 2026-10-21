@@ -403,6 +403,17 @@ function drawFx(f){
   cx.fillRect(f.x-f.w/2,0,f.w,f.y);
   cx.fillStyle='#fff';cx.fillRect(f.x-f.w/6,0,f.w/3,f.y);
   cx.globalCompositeOperation='source-over';}
+ else if(f.t==='dice'){
+  const s=f.s||28,h=s/2;
+  cx.globalAlpha=Math.min(1,p*2.4);cx.translate(f.x,f.y);
+  cx.shadowColor=f.col||'#ffe880';cx.shadowBlur=10;
+  cx.fillStyle='rgba(7,9,16,.92)';cx.strokeStyle=f.col||'#ffe880';cx.lineWidth=2;
+  cx.fillRect(-h,-h,s,s);cx.strokeRect(-h+1,-h+1,s-2,s-2);
+  cx.shadowBlur=0;cx.fillStyle='#fff';
+  for(const pip of (f.pips||[])){
+   const px=(pip%3-1)*s*.25,py=(Math.floor(pip/3)-1)*s*.25;
+   cx.beginPath();cx.arc(px,py,Math.max(1.5,s*.055),0,TAU);cx.fill();
+  }}
  else if(f.t==='focusring'){cx.globalAlpha=p*.5;cx.strokeStyle='#9df';cx.lineWidth=2;
   cx.beginPath();cx.arc(f.x,f.y,(1-p)*46+8,0,TAU);cx.stroke();}
  else if(f.t==='bloom'){

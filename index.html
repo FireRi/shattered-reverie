@@ -22,6 +22,77 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;position:fixed;
  #hint{font-size:12px}
 }
 body.touch #hint{display:none}
+body.cab-live #hint{display:none}
+#cabinet{position:fixed;inset:0;z-index:4;display:none;pointer-events:none;
+ --cab-scale:1;--cab-accent:#6ff6ff;--cab-hot:#ff6ad5;--cab-warm:#ffd45e}
+body.cab-eligible.cab-live #cabinet{display:block}
+.cabPanel{position:absolute;overflow:hidden;box-sizing:border-box;font-family:'Pixel8',monospace;color:#d8f6ff;
+ background:linear-gradient(155deg,rgba(7,17,33,.97),rgba(2,5,12,.995));
+ border:1px solid rgba(110,230,255,.22);
+ box-shadow:inset 0 0 0 1px rgba(0,0,0,.45),inset 0 0 70px rgba(20,80,130,.12),0 0 28px rgba(20,100,160,.14);
+ clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)}
+.cabPanel::before{content:'';position:absolute;left:0;top:0;width:2px;height:100%;z-index:4;
+ background:linear-gradient(180deg,transparent,var(--cab-accent),transparent);opacity:.45}
+.cabPanel::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;
+ background:repeating-linear-gradient(0deg,rgba(190,245,255,.035) 0 1px,transparent 1px 3px);opacity:.7}
+#cabL{display:flex;flex-direction:column;justify-content:space-between;
+ padding:calc(var(--cab-scale)*12px)}
+#cabArt{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;
+ image-rendering:pixelated;filter:saturate(.82) contrast(1.1) brightness(1.15);transform:scale(1.04);opacity:1}
+#cabL .cabShade{position:absolute;inset:0;z-index:1;pointer-events:none;
+ background:linear-gradient(180deg,rgba(2,6,15,.06),rgba(2,6,15,.14) 38%,rgba(2,6,15,.92) 82%),
+ linear-gradient(90deg,rgba(2,6,15,.34),transparent 55%,rgba(2,6,15,.5))}
+.cabTop{position:relative;z-index:2;display:flex;align-items:baseline;justify-content:space-between;
+ gap:calc(var(--cab-scale)*6px);font-size:calc(var(--cab-scale)*6px);color:#8fcfe8;letter-spacing:.12em}
+.cabTop b{font-size:calc(var(--cab-scale)*12px);color:#eaffff;font-weight:400;text-shadow:0 0 12px var(--cab-accent)}
+.cabStage{position:relative;z-index:2;display:flex;flex-direction:column;align-items:flex-start;
+ gap:calc(var(--cab-scale)*3px);text-transform:uppercase}
+.cabKicker{font-size:calc(var(--cab-scale)*6px);color:var(--cab-accent);letter-spacing:.24em}
+.cabStageNo{font-size:calc(var(--cab-scale)*27px);line-height:.9;color:#eaffff;font-weight:400;
+ text-shadow:0 0 20px var(--cab-accent),0 0 48px rgba(110,230,255,.35)}
+.cabStageTitle{font-family:'VT323R',monospace;font-size:calc(var(--cab-scale)*17px);line-height:1.02;
+ color:#dff6ff;max-width:100%;letter-spacing:.04em}
+.cabStageMode{font-size:calc(var(--cab-scale)*6px);line-height:1.4;color:#87a8bb;letter-spacing:.1em}
+#cabR .cabBody{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;
+ gap:calc(var(--cab-scale)*5px);padding:calc(var(--cab-scale)*12px)}
+.cabHead{display:flex;flex-direction:column;align-items:center;gap:calc(var(--cab-scale)*2px);
+ text-align:center;text-transform:uppercase}
+.cabHead span{font-size:calc(var(--cab-scale)*6px);color:#7fbfd6;letter-spacing:.18em}
+.cabHead strong{font-size:calc(var(--cab-scale)*14px);line-height:1;color:#fff;font-weight:400;
+ letter-spacing:.08em;text-shadow:0 0 16px var(--cab-accent)}
+.cabRule{height:1px;flex:none;background:linear-gradient(90deg,transparent,rgba(110,230,255,.55),transparent);
+ box-shadow:0 0 8px rgba(110,230,255,.22)}
+.cabStat{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;
+ column-gap:calc(var(--cab-scale)*4px);min-width:0}
+ .cabStat>span{font-size:calc(var(--cab-scale)*6.5px);line-height:1.35;color:#7897aa;letter-spacing:.08em;white-space:nowrap}
+ .cabStat>b{font-size:calc(var(--cab-scale)*9px);line-height:1.2;color:#eaffff;font-weight:400;
+  white-space:nowrap;text-align:right}
+ .cabStat.score,.cabStat.hi{grid-template-columns:minmax(0,1fr);row-gap:calc(var(--cab-scale)*1px)}
+ .cabStat.score>b,.cabStat.hi>b{font-size:calc(var(--cab-scale)*10.5px);letter-spacing:0;text-align:left;line-height:1}
+.cabStat.player>span,.cabStat.graze>span{color:#ff8dbb}
+.cabStat.spell>span{color:#c8a0ff}
+.cabStat.power>span,.cabStat.flash>span{color:#8fd8ff}
+.cabStat.od>span{color:#c8a0ff}
+.cabStat.sparks>span,.cabStat.wave>span{color:var(--cab-warm)}
+.cabStat.deaths>span{color:#ff8dbb}
+.cabStat.captures>span{color:#8fd8ff}
+.cabPips{display:flex;align-items:center;gap:calc(var(--cab-scale)*2.2px);
+ min-height:calc(var(--cab-scale)*7px);margin-top:calc(var(--cab-scale)*-4px)}
+.cabPips i{display:block;width:calc(var(--cab-scale)*6px);height:calc(var(--cab-scale)*6px);
+ border:1px solid rgba(110,230,255,.3);background:rgba(3,8,17,.68);transform:rotate(45deg)}
+.cabPips.life i.on{background:#ff7bb6;border-color:#ffc0dc;box-shadow:0 0 8px rgba(255,90,160,.55)}
+.cabPips.bomb i.on{background:#c8a0ff;border-color:#eadcff;box-shadow:0 0 8px rgba(190,140,255,.55)}
+.cabMeter{display:flex;flex-direction:column;gap:calc(var(--cab-scale)*2px)}
+.cabBar{height:calc(var(--cab-scale)*5px);border:1px solid rgba(110,230,255,.22);
+ background:rgba(1,4,10,.72);overflow:hidden}
+.cabBar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#6ff6ff,#ff6ad5)}
+.cabMeter.power .cabBar i{background:linear-gradient(90deg,#ff5060,#ffd45e)}
+.cabMeter.flash .cabBar i{background:linear-gradient(90deg,#57b8ff,#d8ffff)}
+.cabMeter.od .cabBar i{background:linear-gradient(90deg,#7f6cff,#ff6ad5)}
+.cabFoot{display:flex;align-items:baseline;justify-content:space-between;gap:calc(var(--cab-scale)*4px);
+ margin-top:auto;font-size:calc(var(--cab-scale)*6px);line-height:1.4;color:#7fbfd6;letter-spacing:.08em}
+.cabFootline{font-size:calc(var(--cab-scale)*6px);line-height:1.4;color:#648497;min-height:calc(var(--cab-scale)*8px)}
+.is-hidden{display:none!important}
 #pad{position:fixed;left:0;top:0;width:100%;height:100%;display:none;z-index:8;
  pointer-events:none;font-family:'VT323R',monospace;
  --sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px);
@@ -67,6 +138,43 @@ body.touch #hint{display:none}
 <body>
 <div id="wrap"><canvas id="cv" width="640" height="480"></canvas></div>
 <div id="hint"><span class="pc">Arrows move | Shift focus | Z shoot/confirm | C spell | X flash | Esc/R pause | S settings | H help | A autofire | M mute</span><span class="mob">Use the on-screen controls</span></div>
+<div id="cabinet" aria-hidden="true">
+ <aside id="cabL" class="cabPanel">
+  <div id="cabArt"></div>
+  <div class="cabShade"></div>
+  <div class="cabTop"><span>ROUTE</span><b id="cabRouteId">S1</b></div>
+  <div class="cabStage">
+   <span class="cabKicker">SECTOR</span>
+   <strong id="cabStageNo" class="cabStageNo">S1</strong>
+   <span id="cabStageTitle" class="cabStageTitle">Stage 1</span>
+   <small id="cabStageMode" class="cabStageMode">STANDARD // NORMAL</small>
+  </div>
+ </aside>
+ <aside id="cabR" class="cabPanel">
+  <div class="cabBody">
+   <header class="cabHead"><span id="cabModeTag">ROUTE</span><strong id="cabDiff">NORMAL</strong></header>
+   <div class="cabRule"></div>
+   <div class="cabStat hi"><span>HI SCORE</span><b id="cabHi">00000000000</b></div>
+   <div class="cabStat score"><span>SCORE</span><b id="cabScore">00000000000</b></div>
+   <div class="cabRule"></div>
+   <div class="cabStat player"><span>PLAYER</span><b id="cabCredits">CR 3</b></div>
+   <div id="cabLives" class="cabPips life"></div>
+   <div class="cabStat spell"><span>SPELL</span><b id="cabSpellVal">2/4</b></div>
+   <div id="cabBombs" class="cabPips bomb"></div>
+   <div class="cabMeter power"><div class="cabStat"><span>POWER</span><b id="cabPowerVal">3.00</b></div><div class="cabBar"><i id="cabPowerBar"></i></div></div>
+   <div class="cabMeter flash"><div class="cabStat"><span>FLASH</span><b id="cabFlashVal">0/30</b></div><div class="cabBar"><i id="cabFlashBar"></i></div></div>
+   <div class="cabMeter od"><div class="cabStat"><span>OVERDRIVE</span><b id="cabOdVal">0/80</b></div><div class="cabBar"><i id="cabOdBar"></i></div></div>
+   <div class="cabStat graze"><span>GRAZE</span><b id="cabGraze">0</b></div>
+   <div class="cabStat sparks"><span>SPARKS</span><b id="cabSparks">0</b></div>
+   <div class="cabStat deaths"><span>DEATHS</span><b id="cabDeaths">0</b></div>
+   <div class="cabStat captures"><span>CAPTURED</span><b id="cabCaptures">0/0</b></div>
+   <div class="cabRule"></div>
+   <div id="cabWaveRow" class="cabStat wave is-hidden"><span>WAVE</span><b id="cabWave">0/0</b></div>
+   <div class="cabFoot"><span id="cabStreak">STREAK x1.00</span><span id="cabFlags"></span></div>
+   <div id="cabFps" class="cabFootline"></div>
+  </div>
+ </aside>
+</div>
 <div id="pad" aria-hidden="true">
  <div id="padStick" class="padControl"><div id="padKnob"></div></div>
  <div id="padPause" class="padControl">II</div>
@@ -92,6 +200,7 @@ body.touch #hint{display:none}
 <script src="js/pex.js"></script>
 <script src="js/pexa.js"></script>
 <script src="js/main.js"></script>
+<script src="js/cabinet.js"></script>
 <script src="js/boot.js"></script>
 </body>
 </html>

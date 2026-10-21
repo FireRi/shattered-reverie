@@ -14,6 +14,9 @@ var fireEl=document.getElementById('padFire');
 var rotateEl=document.getElementById('rotate');
 var rotateSkip=document.getElementById('rotateSkip');
 var rotateFull=document.getElementById('rotateFull');
+var cabEl=document.getElementById('cabinet');
+var cabL=document.getElementById('cabL');
+var cabR=document.getElementById('cabR');
 var touch=typeof IS_TOUCH!=='undefined'&&IS_TOUCH;
 if(touch&&document.body&&document.body.classList)document.body.classList.add('touch');
 
@@ -118,6 +121,28 @@ function layoutPad(v,w,h,portrait){
  if(fullSupported)place(fullEl,oright-fullD/2,12+sat+fullD/2,fullD,fullD*.28);
 }
 
+function layoutCabinet(v,w,wrapH,scale,cw,ch,portrait){
+ var gutter=(w-cw)/2;
+ var eligible=!touch&&!portrait&&gutter>=150&&!!cabEl&&!!cabL&&!!cabR;
+ if(document.body&&document.body.classList){
+  document.body.classList.toggle('cab-eligible',eligible);
+  if(!eligible)document.body.classList.remove('cab-live');
+ }
+ if(!eligible)return;
+ var gap=Math.max(8,Math.round(10*scale));
+ var pw=Math.max(1,Math.floor(gutter-gap));
+ var top=Math.round((wrapH-ch)/2);
+ cabEl.style.setProperty('--cab-scale',String(Math.min(scale,Math.max(.85,pw/140))));
+ cabL.style.left=Math.round(v.x)+'px';
+ cabL.style.top=Math.round(v.y+top)+'px';
+ cabL.style.width=pw+'px';
+ cabL.style.height=ch+'px';
+ cabR.style.left=Math.round(v.x+w-pw)+'px';
+ cabR.style.top=Math.round(v.y+top)+'px';
+ cabR.style.width=pw+'px';
+ cabR.style.height=ch+'px';
+}
+
 function fit(){
  var v=viewRect(),w=v.w,h=v.h;
  var portrait=h>w,wrapH=h;
@@ -142,6 +167,7 @@ function fit(){
   wrapEl.style.height=wrapH+'px';
  }
  layoutPad(v,w,h,portrait);
+ layoutCabinet(v,w,wrapH,scale,canvasW,canvasH,portrait);
 }
 
 window.addEventListener('resize',fit,{passive:true});

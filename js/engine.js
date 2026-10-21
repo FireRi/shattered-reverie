@@ -114,7 +114,8 @@ function makeGenTextures(){
    for(let col=-1;col<5;col++){
     const cxp=col*step+off;
     for(let k=0;k<4;k++){
-     cc.beginPath();cc.arc(cxp,y,(half-2)-k*3.5,Math.PI,TAU);cc.stroke();
+     const r=(half-2)-k*1.5;if(r<=0)break;
+     cc.beginPath();cc.arc(cxp,y,r,Math.PI,TAU);cc.stroke();
     }
    }
   }
@@ -140,7 +141,7 @@ function loadAssets(){
   ['gem_life','ui/gems/lifegem'],['gem_bomb','ui/gems/bombgem'],
   ['fx_warning','effects/warning'],['fx_destruction','effects/destruction'],['fx_cannonfire','effects/cannonfire'],['fx_bosscharge','effects/bosscharge'],['fx_bosshurt','effects/bosshurt'],
   ['yingyang','entities/other/yingyang'],
-  ['bg_menubg','ui/menubg'],['bg_mainbg','ui/mainbg'],['ui_title','ui/maintitle'],['ui_arrow','ui/arrow'],
+  ['bg_mainbg','ui/mainbg'],['ui_arrow','ui/arrow'],
   ['route_s1','backgrounds/stage1_forest'],['route_s2','backgrounds/stage2_lake'],
   ['route_s3','backgrounds/stage3_bg'],['route_ex','backgrounds/stage3_gate_bg'],
   ['spellbg_s1','backgrounds/stage1_spellcard'],['spellbg_s2','backgrounds/stage2_lake_spellcard'],['spellbg_s4','backgrounds/stage2_cirno_spellcard'],

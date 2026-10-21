@@ -3,7 +3,11 @@
 function*hoaN1(b){
  let k=0,divX=W/2,divDir=1;
  while(true){
-  if(k%280===0)divDir*=-1;
+  if(k%280===0){
+   divDir*=-1;
+   fxRing(divX,H/2,divDir>0?'#ff5060':'#4090ff',5,74,3,26);
+   screenFlash(.1,divDir>0?'#ff3040':'#3070ff');
+  }
   divX=clamp(divX+divDir*1.5,80,W-80);
   if(k%4===0){
    const hot=Math.floor(k/4)%2===0;
@@ -12,8 +16,16 @@ function*hoaN1(b){
     fn(u){
      if((divDir>0&&u.x>divX)||(divDir<0&&u.x<divX)){
       const aa=b.aim(u.x,u.y);u.vx=Math.cos(aa*Math.PI/180)*DV(4);u.vy=Math.sin(aa*Math.PI/180)*DV(4);
+      u.g=hot?'ball:blue':'ball:red';
       fxSpark(u.x,u.y,hot?'#ff5060':'#4090ff',5);return false;}
      return true;}});
+  }
+  if(k%84===42){
+   const side=(k/84|0)%2;
+   for(let i=0;i<DN(4);i++)
+    b.S({x:side?W-40:40,y:70+i*22,v:DV(2.6),ang:side?180:0,g:side?'ball:blue':'ball:red',r:5,
+     fn(u){if((divDir>0&&u.x>divX)||(divDir<0&&u.x<divX)){
+      u.vx=0;u.vy=DV(2.8);}return true;}});
   }
   if(k%36===18)b.fan(b.x(),b.y(),DN(6),DV(3.6),50,null,(Math.floor(k/36)%2===0)?'ball:red':'ball:blue');
   if(k%180===120)yield*b.mv(rnd(120,W-120),100,40);
@@ -56,6 +68,13 @@ function*hibN1(b){
     dir*=-1;
    }
   }
+  if(k%76===38){
+   const cx=rnd(46,W-46),cy=rnd(H*.24,H*.52);
+   addText(cx,cy-20,'▼','#a0ffc0',18,34);
+   for(let i=0;i<DN(4);i++)
+    b.S({x:cx+rnd(-7,7),y:cy+i*12,v:DV(2.8),ang:90,g:'crystal:green',r:4,
+     fn(u){if(u.t===30){u.vx=0;u.vy=DV(3.8);}return true;}});
+  }
   if(k%160===140)yield*b.mv(rnd(120,W-120),95,36);
   k++;yield;
  }
@@ -91,7 +110,13 @@ function*kaoN1(b){
   if(k%8===0&&cloudR>12)
    b.S({x:cloudX+rnd(-cloudR,cloudR),y:cloudY+rnd(-cloudR,cloudR),v:DV(.8),ang:90+rnd(-30,30),
     g:'bubble:green',r:rnd(6,10),acc:DV(.06)});
-  if(k%120===110)b.ring(b.x(),b.y(),DN(10),DV(2.4),rnd(360),'kunai:lime');
+  if(k%120===110){
+   b.ring(b.x(),b.y(),DN(10),DV(2.4),rnd(360),'kunai:lime');
+   const aa=b.aim(cloudX,cloudY);
+   b.S({x:cloudX,y:cloudY,v:DV(6.4),ang:aa,g:'kunai:purple',r:4,
+    fn(u){if(u.t===20)fxBurst(u.x,u.y,'#c6f',6);return true;}});
+   addText(cloudX,cloudY-26,'fangs','#c0a0ff',10,28);
+  }
   k++;yield;
  }
 
@@ -118,9 +143,29 @@ function*garN1(b){
  while(k<330){
   a+=2.6;
   if(k%3===0){
-   b.S({x:b.x()+Math.cos(a*Math.PI/180)*34,y:b.y()+Math.sin(a*Math.PI/180)*34,v:DV(3.4),ang:a*3%360,g:'ball:blue'});
-   b.S({x:b.x()-Math.cos(a*Math.PI/180)*34,y:b.y()-Math.sin(a*Math.PI/180)*34,v:DV(4.2),ang:(a*-2)%360+180,g:'kunai:red'});
-   b.S({x:b.x(),y:b.y(),v:DV(2.6),ang:a*2,g:'star:yellow'});
+   for(let i=0;i<3;i++){
+    const aa=(a+i*120)*Math.PI/180,R=46+i*8;
+    b.S({x:b.x()+Math.cos(aa)*R,y:b.y()+Math.sin(aa)*R*.7,v:DV(2.8+i*.3),
+     ang:a*3+i*120,g:['ball:blue','kunai:red','star:yellow'][i],r:i===1?4:5});
+   }
+  }
+  if(k%42===14){
+   const i=(k/42|0)%3,aa=(a+i*120)*Math.PI/180,R=46+i*8;
+   b.fan(b.x()+Math.cos(aa)*R,b.y()+Math.sin(aa)*R*.7,DN(4),DV(3.8),36,
+    aa*180/Math.PI+180+(i-1)*22,['ball:blue','kunai:red','star:yellow'][i]);
+  }
+  if(k%150===120){
+   const pts=[];
+   for(let i=0;i<3;i++){
+    const aa=(a+i*120)*Math.PI/180,R=46;
+    pts.push([b.x()+Math.cos(aa)*R,b.y()+Math.sin(aa)*R*.7]);
+   }
+   for(let i=0;i<3;i++){
+    const p=pts[i],q=pts[(i+1)%3];
+    const ang=Math.atan2(q[1]-p[1],q[0]-p[0])*180/Math.PI;
+    spawnLaser({x:p[0],y:p[1],ang,len:Math.hypot(q[0]-p[0],q[1]-p[1]),
+     warm:26,dur:10,wid:5,col:'#ff8'});
+   }
   }
   k++;yield;
  }
@@ -134,6 +179,21 @@ function*garS(b){
   if(ph===1&&t%24===0)b.fan(b.x(),b.y(),DN(6),DV(5),30,null,'kunai:red');
   if(ph===2&&t%90===0)
    spawnLaser({x:b.x(),y:b.y(),ang:b.aim()+rnd(-40,40),len:600,warm:40,dur:22,wid:14,col:'#fd5'});
+  if(t%280===0){
+   screenFlash(.12,'#e8ff80');shake(3,2);
+   for(let i=0;i<3;i++){
+    const aa=t*.8+i*120;
+    b.ring(b.x()+Math.cos(aa*Math.PI/180)*42,b.y()+Math.sin(aa*Math.PI/180)*32,
+     DN(5),DV(2.5),aa,'star:'+['blue','red','yellow'][i],{r:4});
+   }
+  }
+  if(t%50===25){
+   for(let i=0;i<3;i++){
+    const aa=t*.9+i*120;
+    b.fan(b.x()+Math.cos(aa*Math.PI/180)*42,b.y()+Math.sin(aa*Math.PI/180)*32,
+     DN(3),DV(3.2),26,aa+180,'ball:'+['blue','red','yellow'][i],{r:4});
+   }
+  }
   if(t%280===250)yield*b.mv(rnd(120,W-120),100,30);
   t++;yield;
  }
