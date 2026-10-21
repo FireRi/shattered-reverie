@@ -129,6 +129,7 @@ function sync(){
  var flags=[];
  if(autoFire)flags.push('AUTO');
  if(AudioSys.muted)flags.push('MUTED');
+ if(typeof GamepadSupport!=='undefined'&&GamepadSupport.connected&&GamepadSupport.enabled)flags.push('PAD');
  if(settings&&settings.aiDialogue===false)flags.push('AI OFF');
  text('flags',flags.join(' // '));
  text('fps',showFps&&fpsVal>0?fpsVal+' FPS':'');

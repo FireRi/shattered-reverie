@@ -9,8 +9,9 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last feature commit:** `25d59e0 Overhaul boss danmaku and add desktop cabinet HUD` (pushed).
-- **Current uncommitted work:** no intentional content changes; only line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md`.
+- **Last feature commit:** `25d59e0 Overhaul boss danmaku and add desktop cabinet HUD` (pushed); context refresh `cbd2a5b` (pushed).
+- **Current uncommitted work:** controller support in `js/gamepad.js` (new), `js/engine.js`, `js/main.js`, `index.html`, `js/cabinet.js`, `README.md`, and this file. Do not commit/push until the user explicitly asks.
+- **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
 ## Run And Verify
 
@@ -23,11 +24,14 @@ Get-ChildItem js -Filter *.js | ForEach-Object { node --check $_.FullName }; nod
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\all-boss-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"; Remove-Item Env:TOUCH
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"
+$env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"; Remove-Item Env:TOUCH
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\padcheck.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\cab-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-shot.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\api-check.mjs"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\api-fallback-check.mjs"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\client-ai-check.js"
@@ -37,13 +41,14 @@ Expected current results:
 
 - Desktop smoke: `20/20 PASSED`
 - Touch smoke: `32/32 PASSED`
+- `controller-check.js`: desktop and touch `16/16 PASSED` with a mocked standard pad; covers held/edge keys, context mapping, enable/disable, remap capture, bind suppression, hotplug cleanup, persistence, and controller-screen drawing.
 - `all-boss-check.js` runs all 44 bosses and all 102 attacks for 760 frames each, checks generator errors, non-finite bullets, effect/text caps, and confirms every attack spawns bullets: `ALL-BOSS PASSED`.
 - `xeno-check.js` validates all six dice faces and attacks, hand rankings, both xeno spells, and the natural non-spell → Double or Nothing → All-In attack sequence.
 - Pad layout harness: no unintended canvas overlap; the 4:3 tablet overlay is intentional.
 - `api-check.mjs` uses a mocked Groq response; it validates JSON parsing, alternating `b/p/b/p` order, and the 70B model request. `api-fallback-check.mjs` verifies the 8B JSON fallback.
 - `client-ai-check.js` verifies browser-side cache, entry-time application, and the local AI-off fallback.
 - `shot.js` covers 1280x960 4:3 fallback, landscape touch, and portrait touch; `cab-shot.js` covers 1920x1080 and 1366x768 cabinet mode; `xeno-shot.js` covers the dice non-spell, Double or Nothing cutin/pattern, and All-In hand.
-- Screenshot harnesses use Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, CDP port `9223`, and Node v24+ built-in WebSocket.
+- Screenshot harnesses use Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, CDP port `9223` (`controller-shot.js` uses `9224`), and Node v24+ built-in WebSocket.
 
 Screenshots are written to `C:\Users\Gabby\AppData\Local\Temp\opencode\`:
 
@@ -52,6 +57,7 @@ Screenshots are written to `C:\Users\Gabby\AppData\Local\Temp\opencode\`:
 - `portrait-*.png`: portrait 390x844 after choosing "Play in portrait"
 - `cab-*.png`: 1920x1080 cabinet play/dialog/boss/pause/result plus 1366x768 checks
 - `xeno-*.png`: dice non-spell, Double or Nothing cutin/pattern, and All-In hand
+- `pad-*.png`: connected-pad title prompt, Settings controller row, desktop/touch Controller screen, bind-listening overlay, and portrait layout
 - `rehaul-*.png` / `rehaulN-*.png`: one spell and one non-spell per boss at 960x720; `rehaul-sheet-*.jpg` are contact sheets
 
 The smoke/pad/screenshot harnesses are temporary, not committed. Add a portable `tools/` harness only if it becomes necessary.
@@ -62,6 +68,7 @@ Load order matters. Do not reorder `index.html` scripts.
 
 ```
 js/engine.js     constants, IS_TOUCH, input, pools, shared state, TouchUI
+js/gamepad.js    Gamepad API bridge, padKeys/padEdge, remap + persistence
 js/audio.js      Web Audio buses, SFX synthesis, volume persistence
 js/music.js      procedural stage/boss score generator
 js/player.js     player, shots, bombs, graze, movement
@@ -79,6 +86,10 @@ js/boot.js       viewport fitting, DOM touch pad, fullscreen, canvas tap zones
 All game scripts live in `js/`. `index.html` stays at the repository root; `api/` must stay at the root for Vercel.
 
 - All cross-file communication is through globals. Shared state includes `G`, `PL`, `BOSS`, `eshots`, `mobs`, `ROUTES`, and `settings`.
+- `GamepadSupport` in `js/gamepad.js` polls `navigator.getGamepads()` once per fixed step from `js/main.js`. It writes held/edge state into `padKeys`/`padEdge`; `down()` and `hitK()` merge those with keyboard state, so controller support must not overwrite `keys`/`edge`.
+- Controller defaults: A shot, B flash, X spell, LB focus, Start pause, B cancel. The first connected pad wins; left-stick axes `0/1` plus D-pad buttons `12-15` navigate. Config persists in `lasr_gamepad`; standard-map labels are friendly, non-standard pads show `BTN n` and should be remapped.
+- The Controller screen is `G.screen='controller'` from Settings. Remap capture waits for a clean release, then binds the next new button; after binding, `GamepadSupport` suppresses mapped input until all buttons are released so the bind press cannot activate pause/cancel.
+- Touch Controller screen uses `TouchUI` rows; the DOM pad hides on that screen, and a full-screen touch zone cancels a listening bind. Desktop shows bind instructions in the footer.
 - `IS_TOUCH` is defined in `js/engine.js:18`; `js/boot.js` reads it to apply `body.touch` and pad layout.
 - `TouchUI` zones are registered by drawing code and resolved by `js/boot.js` in reverse draw order.
 - `TouchPad` is the external DOM pad API: `sync`, `release`, `fireDown`, `fireUp`, `bomb`, `spell`, `focus`, `pause`, `stick`, `endStick`, `fullscreen`, `fit`.
@@ -93,11 +104,12 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 
 ## Gameplay And State
 
-- Screens include: `title`, `diff`, `sel`, `settings`, `help`, `play`, `pause`, `gameover`, `result`, `demo`.
+- Screens include: `title`, `diff`, `sel`, `settings`, `controller`, `help`, `play`, `pause`, `gameover`, `result`, `demo`.
 - Story mode uses waves and three credits; 1CC mode uses one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
-- Save keys include `lasr_hi`, `lasr_diff`, `lasr_settings`, `lasr_mute`, `lasr_mvol`, and `lasr_svol`.
+- Save keys include `lasr_hi`, `lasr_diff`, `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, and `lasr_gamepad`.
 - Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
 - Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause, S settings, H help, A autofire, M mute, `-`/`+` music.
+- Controller: A shot/confirm, B flash/cancel, X spell, LB focus, Start pause; D-pad/stick navigate. Title Start/Y open Settings, View opens Help. Settings → Controller handles enable, rebind, reset, and persistence.
 
 ## UI System
 
@@ -107,6 +119,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - Fonts: `Pixel8` for headings/values, `VT323R` for body copy. Use integer font sizes and canvas coordinates where possible.
 - `drawScreen()` calls `drawCRT()` before `TouchPad.sync()`. The overlay adds scanlines, a moving band, vignette, and edge lines.
 - `menuFrame`, `bigTitle`, `drawTitle`, `blinkText`, and `touchBtn` define the shared title/menu/proceed language.
+- The Controller screen uses `menuFrame('CONTROLLER')` with a status header (pad name/mapping/button count), `CONTROLLER_ROWS`, and controller/touch footer hints. Keep the header below the panel title line at desktop and touch sizes; the touch layout uses a two-column row grid and a listening overlay.
 - All gameplay HUD panels use segmented bars and small code tags. The boss bar has 42 segments; score/timer panels avoid the top-center spell label.
 - The player status rail is a compact top-left panel (lives/spells, credits, PWR/FLASH/OD). Keep it out of the lower play area and fade it if the player enters its bounds; the touch route tag sits at the bottom-left. In cabinet mode this rail is replaced by the right side panel.
 - Desktop cabinet: left panel is route art + route/sector/stage identity; right panel is score and telemetry; boss top strip is name/remaining/HP left, timer right, spell banner below. Hide `#hint` while `cab-live`.
@@ -121,22 +134,31 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - Desktop cabinet: requires `(w-canvasW)/2 >= 150`, non-touch, and landscape; 1280x960 stays on the compact HUD. `layoutCabinet()` positions panels using the actual viewport offsets and canvas height.
 - Portrait touch: pad uses bottom-deck mode; "Rotate your device" overlay is skippable via "Play in portrait". The game remains a 4:3 letterboxed canvas.
 - Safe-area insets are read from CSS custom properties `--sal/--sar/--sat/--sab` through `safeInset()`.
-- The pad hides on `help`, `gameover`, `result`, and `demo`; it is visible on `title`, `diff`, `sel`, `pause`, `play`, and `settings`.
+- The pad hides on `help`, `controller`, `gameover`, `result`, and `demo`; it is visible on `title`, `diff`, `sel`, `pause`, `play`, and `settings`. The Controller screen uses canvas `TouchUI` rows instead.
 - On touch, menus use large tile/row hit zones via `TouchUI.add()`; do not rely only on visual text bounds.
 
 ## Git And Working Tree Rules
 
 - **Do not commit or push unless the user explicitly asks.**
-- The UI/status and boss-dialogue overhaul was committed and pushed as `a5f5d78`; the `js/` organization followed as `7cfd061`.
 - Before any future commit, inspect `git status` and `git diff`; stage only intended files.
 - Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`. `js/p4.js`, `js/p5.js`, `js/p6.js`, and `js/pexa.js` now contain intentional danmaku edits, not line-ending-only changes.
-- The dialogue/UI changes were committed as `a5f5d78`; the folder move was committed as `7cfd061`; the cabinet and danmaku overhaul was committed as `25d59e0`.
+- Historical commits: UI/dialogue overhaul `a5f5d78`, `js/` organization `7cfd061`, cabinet/dice/danmaku `25d59e0`, and context refresh `cbd2a5b`.
 - `DOCUMENTATION.md` is a stale untracked duplicate; leave it unstaged unless the user asks to update/remove it.
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
 ## Current Work State (2026-10-21)
 
-Completed:
+Completed (current controller work):
+
+- Added `js/gamepad.js` (Gamepad API polling, standard/non-standard labels, held/edge bridge, menu repeat, remap capture, bind suppression, hotplug cleanup, `lasr_gamepad` persistence) and loaded it after `js/engine.js`.
+- Moved controller input into separate `padKeys`/`padEdge` layers; `down()`/`hitK()` merge them with keyboard input, and `autoPause` releases both controller and touch state.
+- Added the Settings → Controller screen (`G.screen='controller'`) with enable/disable, six bind actions, reset, back, pad status, button/axis counts, listening state, and desktop/touch layouts. Touch can tap rows to bind and tap anywhere to cancel a listen; the touch binding overlay covers the screen.
+- Expanded controller contexts: title Start/Y opens Settings, View opens Help, menus use A/B/Start, play maps shot/flash/spell/focus/pause, demo exits on controller input.
+- Updated the title prompt/footer, help control matrix, cabinet `PAD` flag, README architecture/input/testing docs, and this file. No commit/push for controller work yet.
+- Verified with a mocked standard pad on desktop and touch: `controller-check.js` passes 16/16 in both modes; desktop smoke `20/20`, touch smoke `32/32`, and `ALL-BOSS PASSED` (44/102) still pass.
+- Screenshot review: controller settings row, desktop Controller screen, touch two-column screen, listening overlay, and portrait layout are legible after moving the status header clear of the panel title. The desktop title prompt uses `Z / PAD A TO DEPLOY`, and touch START changes to `START / PAD A` at 14px so it fits the button.
+
+Earlier completed (committed):
 
 - Mobile overhaul: external DOM controls, safe-area-aware gutter/deck/overlay layouts, menu stick navigation, fullscreen button, and touch HUD adjustments; committed as `e50a9ba`.
 - Sci-fi UI pass across title, difficulty, stage select, settings, help, pause, game over, results, dialog, banners, demo overlay, cut-ins, and HUD.
@@ -146,7 +168,7 @@ Completed:
 - Moved player status out of the lower play area into a compact top-left telemetry rail; touch route tag moved to bottom-left.
 - Boss banter rehaul: `js/dialogue.js` now has distinct four-line exchanges and voice notes for all 44 boss IDs, replacing the mismatched `DIALOGS` table and generic fallback.
 - AI dialogue now prefetches the current and next boss, caches valid four-line responses, validates speakers, applies only during entry, and falls back silently. The API prefers `llama-3.3-70b-versatile` with an 8B retry.
-- Repository organization: all 16 existing game scripts now live in `js/`; `index.html` script paths, the README tree, and test commands were updated.
+- Repository organization: all game scripts live in `js/`; `index.html` script paths, the README tree, and test commands were updated.
 - Desktop cabinet HUD implemented: markup/CSS in `index.html`, `layoutCabinet()` in `js/boot.js`, `CabinetUI` in new `js/cabinet.js`, and cabinet-specific HUD branching in `js/main.js`.
 - Cabinet verified visually at 1920x1080 and 1366x768: side panels, boss top strip, pauses, results, and hidden keyboard hint; 1280x960 still uses the compact HUD.
 - Fixed `js/engine.js` `makeGenTextures()` negative-radius arc crash. Image assets now finish loading, so stage backgrounds, gems, and other sprite art are available to the cabinet and game.
@@ -162,21 +184,24 @@ Completed:
 
 Current verification state:
 
-- All intended JavaScript files pass `node --check`, including `js/cabinet.js`.
-- `all-boss-check.js`: `ALL-BOSS PASSED` with 44 bosses and 102 attacks.
+- All intended JavaScript files pass `node --check`, including `js/gamepad.js` and `js/cabinet.js`.
+- `controller-check.js` passes 16/16 on desktop and touch with a mocked standard pad; `all-boss-check.js` is `ALL-BOSS PASSED` with 44 bosses and 102 attacks.
 - Desktop smoke passes `20/20`; touch smoke passes `32/32`; cabinet does not activate in fake-DOM or touch runs.
+- Controller screenshots reviewed at 1280x960, landscape touch 844x390, and portrait 390x844. The title prompt, settings row, status header, two-column touch grid, listening overlay, and footer fit without clipping.
+- Real controller hardware on desktop/mobile and browser/OS recognition of non-standard pads still need manual validation.
 - `xeno-check.js` passes after the final dice, label-spacing, and cutin changes; targeted 1280x960 screenshots show readable dice faces, roll names, Double or Nothing, and the All-In hand.
 - `padcheck.js`, both mocked API checks, and `client-ai-check.js` pass after the final asset-loader, cabinet, and danmaku changes.
 - Final cabinet screenshots reviewed at 1920x1080 and 1366x768: play, boss, pause, gameover, and result have no clipping or duplicate HUD; backdrop art is loading.
 - Final 1280x960, landscape touch, and portrait touch screenshots reviewed after the asset fix; compact HUD and DOM pad layouts remain intact.
 - Rehaul contact sheets were reviewed for all 44 non-spells and last spells; no impossible cages or generator failures remain. Para's lane fix and the densified Shitodo/Jinbei/Kurohebi changes still need a real playtest for feel.
 - Tenkai screenshots were reviewed at the draft, inked, frame-seal, crane-head, unfinished, and takeoff stages; the frame is fully on screen, its opening is labeled, the missing side is drawn in before sealing, and the crane reads as a crane. The frame/crane still need a real playtest for feel.
-- Real-device touch/fullscreen behavior and a live Groq key still need manual validation.
-- The cabinet, dice, Tenkai, and danmaku work are committed and pushed as `25d59e0`.
+- Real-device touch/fullscreen behavior, controller recognition, and a live Groq key still need manual validation.
+- The cabinet, dice, Tenkai, and danmaku work are committed and pushed as `25d59e0`; the controller work is uncommitted.
 
 Next steps:
 
-1. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
-2. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
-3. Playtest the revised bosses, especially Tenkai's frame escape/crane takeoff, the new wall lanes, and late-route exclusions; tune density only if it blocks readability.
-4. Commit/push only when the user explicitly asks.
+1. Validate with real controller hardware on desktop and mobile, including hotplug and a non-standard pad; confirm browser/OS recognition and remap usability.
+2. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
+3. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
+4. Playtest the revised bosses, especially Tenkai's frame escape/crane takeoff, the new wall lanes, and late-route exclusions; tune density only if it blocks readability.
+5. Commit/push only when the user explicitly asks.

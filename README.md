@@ -33,6 +33,7 @@ Every game script is loaded via `<script>` tags in `index.html` in a specific or
 index.html
   ├── js/
   │   ├── engine.js      Core systems (loaded first, defines globals)
+  │   ├── gamepad.js     Gamepad API bridge + remappable bindings
   │   ├── audio.js       SFX synthesis + music volume buses
   │   ├── music.js       Per-stage/boss procedural score generator
   │   ├── player.js      Player ship, shots, bombs, graze
@@ -62,8 +63,8 @@ All game code lives in `js/`; the entry point, Vercel API, and static assets sta
 The dependency chain is:
 
 ```
-engine.js  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
-(core)       (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
+engine.js + gamepad  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
+(core + input)          (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -94,6 +95,31 @@ The foundation layer. Contains everything that must exist before any content:
 | Item system | Spawning, magnet collection, floor expiry (P/B/L/S/K/O — O feeds the OD meter) |
 | Laser system | Telegraphed straight-line hazards with warm-up/active/fade states |
 | Effects (`render.js`) | Ring, spark, shard, trail, puff, crescent, bloom, beam, dice, seigaiha overlay |
+
+### js/gamepad.js
+
+Gamepad API bridge, loaded immediately after `engine.js`. It writes into
+separate `padKeys` / `padEdge` layers that `down()` and `hitK()` merge with the
+keyboard, so a controller can be used alongside the keyboard or DOM touch pad.
+
+| Area | Behavior |
+|------|----------|
+| Default map | A = shot/confirm, B = flash/cancel, X = spell, LB = focus, Start = pause/start |
+| Navigation | D-pad or left stick with a 30% deadzone; menu repeat starts after 340ms, then every 120ms |
+| Title | Start opens Settings, Y also opens Settings, View opens Help |
+| Menus | Shot confirms, B/Start backs out; shot, spell, pause and cancel work on every menu |
+| Play/demo | Shot, flash, spell, focus and pause map to the existing keyboard codes; demo exits on any controller action |
+| Remapping | `GamepadSupport.beginCapture()` waits for all buttons to be released, then binds the next new button |
+| Persistence | `lasr_gamepad` stores `{enabled, map}` separately from `lasr_settings` |
+
+Standard-mapped pads use friendly labels (`A`, `LB`, `START`, `D-LEFT`); a
+non-standard pad shows `BTN <index>` so the player can remap it. The bridge
+supports hotplug polling and the first connected pad, assumes left-stick axes
+`0/1` and D-pad buttons `12-15`, and does not use rumble. Gamepad API support
+depends on the browser and operating system; current Chrome, Edge, Firefox and
+iOS Safari expose it, while some embedded or older browsers do not. Keyboard
+and touch input remain available when no pad is connected or controller input
+is disabled.
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -170,9 +196,12 @@ title → diff → sel → play ⇄ pause
                      play → result (1CC failure) → title
 ```
 
-Persistence: `lasr_hi`, `lasr_diff`, `lasr_mvol`, `lasr_svol`, `lasr_mute`, and
+Persistence: `lasr_hi`, `lasr_diff`, `lasr_mvol`, `lasr_svol`, `lasr_mute`,
 `lasr_settings` (JSON: music/SFX volume, mute, shake, bloom, flash, auto-fire,
-FPS, AI dialogue). Settings are available from the title (S) and pause menu.
+FPS, AI dialogue), and `lasr_gamepad` (controller enable flag + button map).
+Settings are available from the title (S), pause menu, and touch settings. The
+Controller row opens a dedicated remap screen; keyboard and touch input remain
+active throughout.
 
 ### js/cabinet.js
 
@@ -375,8 +404,8 @@ Touch support is detected once at load (`IS_TOUCH` in `engine.js`) from
   places the pad in the side letterbox gutters when they are wide enough;
   portrait aligns the canvas above a bottom deck. When no gutters exist
   (4:3 tablets), controls fall back to a bottom overlay. The pad is hidden on
-  help, game-over, result, and demo screens. Safe-area insets keep the stick,
-  buttons, and pause/full controls clear of notches and home indicators.
+  help, controller, game-over, result, and demo screens. Safe-area insets keep
+  the stick, buttons, and pause/full controls clear of notches and home indicators.
 - **Hit testing**: menu taps still use rectangular zones registered with
   `TouchUI.add()` each frame and resolved by `boot.js` in reverse draw order.
   The joystick and action buttons are real DOM elements with pointer events,
@@ -385,6 +414,28 @@ Touch support is detected once at load (`IS_TOUCH` in `engine.js`) from
 - **Orientation**: portrait phones show a rotate overlay with `FULLSCREEN`
   (requests fullscreen, then landscape lock) and `PLAY IN PORTRAIT`. The
   640×480 canvas is letterboxed and scaled to fit either orientation.
+
+### 3.7 Controller Input
+
+Gamepad support is independent of `IS_TOUCH`, so the same pad works on desktop
+and mobile browsers. `js/gamepad.js` polls `navigator.getGamepads()` once per
+fixed game step and feeds held/edge keys into the shared input layer. The first
+connected pad wins; unplugging releases every mapped key so the player cannot
+get stuck moving or firing.
+
+The Settings → Controller screen can enable/disable controller input, rebind
+the six actions, restore defaults, and toggle between pad and keyboard/touch.
+Remapping waits for all buttons to be released, then binds the next newly
+pressed button. Bindings persist in `lasr_gamepad`. A controller button press
+never binds itself through to gameplay: after a successful bind, mapped input
+is suppressed until every button is released.
+
+Standard gamepads are assumed to use the W3C standard mapping (A/B/X/Y,
+shoulders, Start, D-pad, left stick on axes 0/1). Pads that report
+`mapping: ''` still work, but the UI labels buttons as `BTN <index>` and the
+player should remap the six actions. Rumble and motion are not used. Gamepad
+support depends on browser/OS recognition; keyboard and DOM touch controls stay
+active and can be used to reach Settings if a pad is not detected.
 
 ---
 
@@ -652,6 +703,7 @@ is ignored by `.gitignore`). Validate changes with syntax checks:
 
 ```
 node --check js/engine.js
+node --check js/gamepad.js
 node --check js/audio.js
 node --check js/music.js
 node --check js/player.js
@@ -676,8 +728,17 @@ Optional local harnesses (kept outside the repo) also exercise runtime behavior:
 ```powershell
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\all-boss-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"
+$env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"; Remove-Item Env:TOUCH
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
 ```
+
+`controller-check.js` mocks a standard gamepad and verifies held/edge mapping,
+title/menu bindings, stick movement, enable/disable, remap capture, bind
+suppression until release, hotplug cleanup, non-standard labels, persistence,
+and desktop/touch drawing. `controller-shot.js` is the optional visual pass for
+the title prompt and Controller screen at desktop, landscape-touch, and
+portrait sizes.
 
 `all-boss-check.js` runs all 44 bosses and 102 attacks, rejecting generator
 exceptions, non-finite bullets, cap overruns, and attacks that never fire.
@@ -714,7 +775,7 @@ Manual regression checklist:
 - Touch: focus toggle slows movement and enables homing; FOCUS survives
   pause/resume but resets on a new run.
 - Touch: pause remains reachable during dialog; dialog advances on tap or
-  FIRE. The pad hides on help, game-over, result, and demo screens.
+  FIRE. The pad hides on help, controller, game-over, result, and demo screens.
 - Touch: portrait shows the rotate overlay; FULLSCREEN requests landscape
   where supported, and PLAY IN PORTRAIT uses the bottom deck.
 - Touch: the pad `FULL` button toggles fullscreen (label becomes EXIT) from
@@ -723,6 +784,21 @@ Manual regression checklist:
   resizing or rotating reflows the pad and canvas, and safe-area insets keep
   controls clear of notches and home indicators.
 - Auto-fire is optional in touch Settings (off by default).
+- Controller: connect a pad, press any button, and confirm the desktop title
+  prompt changes to `Z / PAD A TO DEPLOY` (touch START becomes
+  `START / PAD A`); Start opens Settings, Y also opens Settings, and View
+  opens Help.
+- Controller: Settings → Controller shows the pad name, standard/non-standard
+  mapping, button/axis counts, and live binding labels; enable/disable and
+  reset persist across reload.
+- Controller: rebind shot/flash/spell/focus/pause/cancel one at a time; after a
+  bind, the new button must be released before it acts, and Cancel can be
+  reached with a touch tap or Esc on the remap screen.
+- Controller: D-pad/stick navigates menus; A confirms, B backs out, Start
+  pauses in play, and all buttons release on hot-unplug or blur.
+- Controller: repeat the movement/menu/remap checks on a phone or tablet with
+  a Bluetooth pad to validate browser/OS recognition; unsupported pads can be
+  made usable through remapping if the browser exposes them.
 
 ---
 
@@ -835,3 +911,7 @@ All sprite usage has vector fallbacks for headless testing.
 - **No netplay**: The game is single-player only.
 - **Browser compatibility**: Requires Web Audio API and PeriodicWave support
   (all modern browsers, but not IE11).
+- **Controller compatibility**: Depends on the browser and OS exposing the pad
+  through the Gamepad API. Standard-mapped pads work directly; non-standard
+  pads need remapping. Axes are assumed to be left stick `0/1`, D-pad buttons
+  `12-15`, and rumble/motion are not used. Hotplug is detected by polling.

@@ -2,7 +2,7 @@
  const G={score:0,hi:0,dispScore:0,spellsPlayed:0,spellsCaptured:0,deaths:0,hits:0,
  routeQueue:[],routeIdx:0,bossIdx:0,screen:'title',frame:0,freeze:0,spellBombUsed:false,lastBonusLost:false,
  selFlags:new Array(ROUTES.length).fill(false),selCursor:0,diffCursor:1,pauseCursor:0,pauseConfirm:null,
- settingsCursor:0,settingsFrom:'title',helpFrom:'title',
+ settingsCursor:0,settingsFrom:'title',helpFrom:'title',gpadCursor:0,gpadMsg:'',
  bannerT:0,bannerText:'',monoRay:null,resultT:0,livesPulse:0,newHi:false,oneCCFailed:false,
  shakeEnabled:true,bloomEnabled:true,flashEnabled:true,aiDialogue:true,
  od:0,odMax:80,trance:0,streak:0,bestStreak:0,streakMult:1,sparksGot:0,spellUsedOwn:0,
@@ -21,6 +21,18 @@ const SETTINGS_ITEMS=[
  {k:'autoFire',label:'Auto-Fire'},
  {k:'showFps',label:'Show FPS'},
  {k:'aiDialogue',label:'AI Boss Dialogue'},
+ {k:'controller',label:'Controller'},
+ {k:'back',label:'Back'}
+];
+const CONTROLLER_ROWS=[
+ {k:'enabled',label:'Controller Input'},
+ {k:'shot',label:'Shot / Confirm'},
+ {k:'flash',label:'Flash'},
+ {k:'spell',label:'Spell'},
+ {k:'focus',label:'Focus'},
+ {k:'pause',label:'Pause / Start'},
+ {k:'cancel',label:'Back / Cancel'},
+ {k:'reset',label:'Reset Bindings'},
  {k:'back',label:'Back'}
 ];
 const settings={musicVol:musicVolIdx,sfxVol:sfxVolIdx,mute:false,shake:true,bloom:true,flash:true,
@@ -310,6 +322,9 @@ function updateMenus(){
    }else if(hitK(KEY.Z)||hitK(KEY.ENTER)){
     sfx('ok');
     if(it.k==='back'){G.screen=G.settingsFrom;break;}
+    if(it.k==='controller'){
+     GamepadSupport.cancelCapture();G.gpadCursor=0;G.gpadMsg='';G.screen='controller';break;
+    }
     if(it.k==='musicVol')settings.musicVol=(settings.musicVol+1)%VOL_STEPS.length;
     else if(it.k==='sfxVol')settings.sfxVol=(settings.sfxVol+1)%SFX_STEPS.length;
     else if(it.k==='mute')toggleMute();
@@ -317,6 +332,29 @@ function updateMenus(){
     applySettings();changed=true;
    }
    if(changed)saveSettings();
+   break;}
+  case 'controller':{
+   const ev=GamepadSupport.takeEvent();
+   if(ev&&ev.type==='bound'){
+    G.gpadMsg='BOUND TO '+GamepadSupport.buttonLabel(ev.index);
+    sfx('ok');
+   }
+   if(GamepadSupport.listening)break;
+   G.gpadCursor=menuNav(CONTROLLER_ROWS.length,G.gpadCursor);
+   const row=CONTROLLER_ROWS[G.gpadCursor];
+   if(hitK(KEY.Z)||hitK(KEY.ENTER)){
+    if(row.k==='enabled'&&!GamepadSupport.supported){G.gpadMsg='GAMEPAD API UNAVAILABLE';sfx('no');break;}
+    sfx('ok');
+    if(row.k==='back'){G.screen='settings';G.gpadMsg='';break;}
+    if(row.k==='enabled'){
+     GamepadSupport.setEnabled(!GamepadSupport.enabled);
+     G.gpadMsg=GamepadSupport.enabled?'INPUT ENABLED':'INPUT DISABLED';
+    }else if(row.k==='reset'){
+     GamepadSupport.resetBindings();G.gpadMsg='DEFAULT BINDINGS RESTORED';
+    }else{
+     GamepadSupport.beginCapture(row.k);G.gpadMsg='';
+    }
+   }
    break;}
   case 'help':
    if(hitK(KEY.Z)||hitK(KEY.ENTER)||hitK(KEY.X)){sfx('cur');G.screen=G.helpFrom;}
@@ -341,6 +379,7 @@ addEventListener('keydown',e=>{
 function autoPause(){
  for(const k in keys)keys[k]=false;
  for(const k in edge)edge[k]=false;
+ if(typeof GamepadSupport!=='undefined'&&GamepadSupport.releaseAll)GamepadSupport.releaseAll();
  if(typeof TouchPad!=='undefined'&&TouchPad.release)TouchPad.release();
  else TouchUI.release();
  if(G.screen==='play'&&!Gdemo){G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;}
@@ -887,6 +926,7 @@ function drawScreen(){
   else if(G.screen==='gameover')drawGameover();
   else if(G.screen==='result')drawResult();
   else if(G.screen==='settings')drawSettings();
+  else if(G.screen==='controller')drawController();
   else if(G.screen==='help')drawHelp();
  }
  drawCRT();
@@ -1065,6 +1105,7 @@ function bigTitle(y){
  cx.restore();
 }
 function drawTitle(){
+ const padReady=GamepadSupport.enabled&&GamepadSupport.connected;
  drawTitleGrid();
  cx.save();
  cx.font='8px "Pixel8",monospace';cx.textBaseline='top';cx.textAlign='left';
@@ -1076,17 +1117,18 @@ function drawTitle(){
  cx.restore();
  bigTitle(166);
  if(IS_TOUCH){
-  touchBtn(W/2-118,286,236,50,'START',()=>{sfx('ok');G.screen='diff';G.idleT=0;},
-   {id:'title:start',font:'bold 18px "Pixel8",monospace',col:UI.magenta});
+  touchBtn(W/2-118,286,236,50,padReady?'START / PAD A':'START',()=>{sfx('ok');G.screen='diff';G.idleT=0;},
+   {id:'title:start',font:padReady?'bold 14px "Pixel8",monospace':'bold 18px "Pixel8",monospace',col:UI.magenta});
   touchBtn(W/2-164,352,154,40,'SETTINGS',()=>{sfx('ok');G.settingsCursor=0;G.settingsFrom='title';G.screen='settings';},
    {id:'title:settings',col:UI.cyan});
   touchBtn(W/2+10,352,154,40,'HOW TO PLAY',()=>{sfx('ok');G.helpFrom='title';G.screen='help';},
    {id:'title:help',col:UI.cyan});
  }else{
   uiPanel(130,308,380,46,{cut:8,col:'rgba(110,230,255,.42)',ticks:true,fill:'rgba(3,9,18,.52)'});
-  blinkText('PRESS  Z  TO  DEPLOY',H/2+92,18);
+  if(padReady)blinkText('Z / PAD A  TO DEPLOY',H/2+92,16);
+  else blinkText('PRESS  Z  TO  DEPLOY',H/2+92,18);
   cx.fillStyle=UI.dim;cx.font='9px "Pixel8",monospace';cx.textAlign='center';cx.textBaseline='top';
-  cx.fillText('S  SETTINGS      H  HOW TO PLAY',W/2,H/2+142);
+  cx.fillText(padReady?'S / PAD START SETTINGS      H HOW TO PLAY':'S  SETTINGS      H  HOW TO PLAY',W/2,H/2+142);
  }
  uiPanel(120,H-82,400,56,{cut:6,col:'rgba(90,220,255,.32)',ticks:false,fill:'rgba(3,9,18,.72)'});
  cx.textAlign='center';cx.textBaseline='top';
@@ -1103,7 +1145,7 @@ function blinkText(s,y,sz){
  cx.restore();
 }
 function menuFrame(title){
- const code={diff:'SYS/DIFF',sel:'SYS/ROUTE',settings:'SYS/CFG',help:'SYS/HELP'}[G.screen]||'SYS/UI';
+ const code={diff:'SYS/DIFF',sel:'SYS/ROUTE',settings:'SYS/CFG',controller:'SYS/PAD',help:'SYS/HELP'}[G.screen]||'SYS/UI';
  uiPanel(48,104,W-96,312,{title:title,code:code,col:UI.cyan});
 }
 function drawDiff(){
@@ -1391,8 +1433,9 @@ function drawTouchSettings(){
   if(it.k==='musicVol')val=Math.round(VOL_STEPS[settings.musicVol]*100)+'%';
   else if(it.k==='sfxVol')val=Math.round(SFX_STEPS[settings.sfxVol]*100)+'%';
   else if(it.k==='mute')val=AudioSys.muted?'ON':'OFF';
+  else if(it.k==='controller')val=!GamepadSupport.supported?'N/A':GamepadSupport.enabled?(GamepadSupport.connected?'PAD':'ON'):'OFF';
   else if(it.k!=='back')val=settings[it.k]?'ON':'OFF';
-  const active=it.k==='mute'?AudioSys.muted:vol?true:(it.k!=='back'&&!!settings[it.k]);
+  const active=it.k==='mute'?AudioSys.muted:(it.k==='controller'?(GamepadSupport.supported&&GamepadSupport.enabled):(vol?true:(it.k!=='back'&&!!settings[it.k])));
   const sel=G.settingsCursor===i,back=it.k==='back';
   const cc=back?UI.red:(sel?UI.cyan:(active?UI.green:'rgba(90,160,190,.32)'));
   uiTile(x,y,cw,ch,{sel:sel,col:cc,on:active,fill:back?'rgba(24,8,18,.62)':'rgba(5,13,25,.72)'});
@@ -1447,8 +1490,9 @@ function drawSettings(){
   if(it.k==='musicVol')val=Math.round(VOL_STEPS[settings.musicVol]*100)+'%';
   else if(it.k==='sfxVol')val=Math.round(SFX_STEPS[settings.sfxVol]*100)+'%';
   else if(it.k==='mute')val=AudioSys.muted?'ON':'OFF';
+  else if(it.k==='controller')val=!GamepadSupport.supported?'N/A':GamepadSupport.enabled?(GamepadSupport.connected?'ON · PAD':'ON'):'OFF';
   else val=settings[it.k]?'ON':'OFF';
-  const on=it.k==='mute'?AudioSys.muted:(vol?true:!!settings[it.k]);
+  const on=it.k==='mute'?AudioSys.muted:(it.k==='controller'?(GamepadSupport.supported&&GamepadSupport.enabled):(vol?true:!!settings[it.k]));
   cx.textAlign='right';cx.font='11px "Pixel8",monospace';
   cx.fillStyle=on?UI.green:'#6d8494';
   cx.fillText((vol?'◀ '+val+' ▶':val),530,y-4);
@@ -1456,17 +1500,124 @@ function drawSettings(){
  cx.textAlign='center';cx.fillStyle=UI.dim;cx.font='8px "Pixel8",monospace';cx.textBaseline='top';
  cx.fillText('UP/DOWN SELECT // LEFT/RIGHT ADJUST // Z TOGGLE // ESC BACK',W/2,H-48);
 }
+function controllerRows(){
+ const gs=GamepadSupport;
+ const map=gs.config.map;
+ return CONTROLLER_ROWS.map(row=>{
+  if(row.k==='enabled')return Object.assign({},row,{value:!gs.supported?'N/A':(gs.enabled?'ON':'OFF'),col:gs.supported&&gs.enabled?UI.green:'#6d8494'});
+  if(row.k==='reset')return Object.assign({},row,{value:'DEFAULTS',col:UI.amber});
+  if(row.k==='back')return Object.assign({},row,{value:'',col:UI.red});
+  const listening=gs.listening&&gs.captureAction===row.k;
+  return Object.assign({},row,{
+   value:listening?(gs.captureArmed?'PRESS...':'RELEASE...'):gs.buttonLabel(map[row.k]),
+   col:listening?UI.amber:UI.cyan
+  });
+});
+}
+function controllerStatus(){
+ const gs=GamepadSupport;
+ if(!gs.supported)return {line:'GAMEPAD API UNAVAILABLE',sub:'USE A SUPPORTED BROWSER',col:UI.red};
+ if(gs.connected){
+  const name=gs.padName.length>34?gs.padName.slice(0,31)+'...':gs.padName;
+  return {line:'CONNECTED // '+name.toUpperCase(),sub:gs.padMapping==='standard'?'STANDARD MAPPING':'NON-STANDARD // REMAP AS NEEDED',col:UI.green};
+ }
+ if(!gs.enabled)return {line:'CONTROLLER INPUT OFF',sub:'ENABLE INPUT TO USE A PAD',col:UI.amber};
+ return {line:'NO CONTROLLER DETECTED',sub:'CONNECT A PAD AND PRESS A BUTTON',col:UI.dim};
+}
+function controllerFooter(){
+ if(!GamepadSupport.supported)return 'GAMEPAD API REQUIRED // KEYBOARD AND TOUCH STILL WORK';
+ if(GamepadSupport.listening)
+  return GamepadSupport.captureArmed?(IS_TOUCH?'PRESS A PAD BUTTON // TAP TO CANCEL':'PRESS ANY CONTROLLER BUTTON // ESC CANCELS'):'RELEASE THE BUTTONS, THEN PRESS A NEW ONE';
+ return G.gpadMsg||(IS_TOUCH?'TAP A ROW TO BIND // BACK RETURNS':'UP/DOWN SELECT // Z / A BIND // ESC / B BACK');
+}
+function drawController(){
+ if(IS_TOUCH){drawTouchController();return;}
+ menuFrame('CONTROLLER');
+ const st=controllerStatus();
+ cx.textAlign='left';cx.textBaseline='top';cx.font='8px "Pixel8",monospace';
+ cx.fillStyle=st.col;cx.fillText(st.line,68,136);
+ cx.fillStyle=UI.dim;cx.fillText(st.sub,68,148);
+ cx.textAlign='right';cx.font='7px "Pixel8",monospace';
+ cx.fillText(GamepadSupport.connected?GamepadSupport.padButtons+' BTN // '+GamepadSupport.padAxes+' AXIS':'P1',W-68,136);
+ const rows=controllerRows();
+ rows.forEach((row,i)=>{
+  const sel=i===G.gpadCursor,y=178+i*26,rowY=y-12;
+  uiTile(98,rowY,444,22,{sel:sel,col:sel?row.col:UI.blue,fill:row.k==='back'?'rgba(24,8,18,.5)':'rgba(5,13,25,.55)'});
+  if(sel)uiCursor(106,y,sel?row.col:UI.dim);
+  cx.textBaseline='middle';cx.textAlign='left';
+  cx.font='18px "VT323R",monospace';
+  cx.fillStyle=row.k==='back'?'#f3a8b8':(sel?'#f2ffff':'#a6bac8');
+  cx.fillText(row.label,118,y-4);
+  if(row.value!==''){
+   cx.textAlign='right';cx.font='11px "Pixel8",monospace';
+   cx.fillStyle=row.col;cx.fillText(row.value,530,y-4);
+  }
+ });
+ cx.textAlign='center';cx.fillStyle=UI.dim;cx.font='8px "Pixel8",monospace';cx.textBaseline='top';
+ cx.fillText(controllerFooter(),W/2,H-48);
+}
+function drawTouchController(){
+ menuFrame('CONTROLLER');
+ const st=controllerStatus();
+ cx.textAlign='left';cx.textBaseline='top';cx.font='8px "Pixel8",monospace';
+ cx.fillStyle=st.col;cx.fillText(st.line,68,134);
+ cx.fillStyle=UI.dim;cx.fillText(st.sub,68,146);
+ const rows=controllerRows();
+ const x0=78,x1=324,cw=234,ch=40,y0=164,rh=44;
+ rows.forEach((row,i)=>{
+  const col=i%2,rr=(i/2)|0,x=x0+col*(x1-x0),y=y0+rr*rh;
+  const sel=i===G.gpadCursor,back=row.k==='back';
+  const cc=back?UI.red:(sel?row.col:(row.k==='enabled'||row.value)?UI.blue:'rgba(90,160,190,.32)');
+  uiTile(x,y,cw,ch,{sel:sel,col:cc,on:row.k==='enabled'&&GamepadSupport.supported&&GamepadSupport.enabled,fill:back?'rgba(24,8,18,.62)':'rgba(5,13,25,.72)'});
+  uiTag('0'+(i+1),x+9,y+7,sel?cc:UI.dim);
+  cx.textAlign='left';cx.textBaseline='top';
+  cx.fillStyle=back?'#f3a8b8':'#dff4ff';cx.font='16px "VT323R",monospace';
+  cx.fillText(row.label,x+9,y+17);
+  if(row.value!==''){
+   cx.textAlign='right';cx.font='10px "Pixel8",monospace';
+   cx.fillStyle=row.col;cx.fillText(row.value,x+cw-9,y+19);
+  }
+  TouchUI.add(x,y,cw,ch,()=>{
+   G.gpadCursor=i;sfx('cur');
+   if(back){G.screen='settings';G.gpadMsg='';return;}
+   if(row.k==='enabled'){
+    if(!GamepadSupport.supported){G.gpadMsg='GAMEPAD API UNAVAILABLE';sfx('no');return;}
+    GamepadSupport.setEnabled(!GamepadSupport.enabled);sfx('ok');
+    G.gpadMsg=GamepadSupport.enabled?'INPUT ENABLED':'INPUT DISABLED';
+   }else if(row.k==='reset'){
+    GamepadSupport.resetBindings();sfx('ok');G.gpadMsg='DEFAULT BINDINGS RESTORED';
+   }else{
+    GamepadSupport.beginCapture(row.k);
+   }
+  },'controller:'+row.k);
+ });
+ cx.textAlign='center';cx.fillStyle=UI.dim;cx.font='8px "Pixel8",monospace';cx.textBaseline='top';
+ cx.fillText(controllerFooter(),W/2,H-30);
+ if(GamepadSupport.listening){
+  cx.fillStyle='rgba(2,6,14,.86)';cx.fillRect(48,104,W-96,312);
+  uiPanel(126,214,388,88,{cut:6,col:UI.amber,ticks:false,fill:'rgba(18,12,4,.94)'});
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillStyle=UI.amber;cx.font='10px "Pixel8",monospace';
+  cx.fillText('BINDING '+CONTROLLER_ROWS[G.gpadCursor].label.toUpperCase(),W/2,240);
+  cx.fillStyle='#fff2c8';cx.font='15px "VT323R",monospace';
+  cx.fillText(GamepadSupport.captureArmed?'PRESS A CONTROLLER BUTTON':'RELEASE THE BUTTONS',W/2,260);
+  cx.fillStyle='#a09060';cx.font='8px "Pixel8",monospace';
+  cx.fillText('TAP HERE TO CANCEL',W/2,280);
+  TouchUI.add(0,0,W,H,()=>{GamepadSupport.cancelCapture();G.gpadMsg='BIND CANCELLED';sfx('cur');},'controller:cancel');
+ }
+}
 function drawHelp(){
  menuFrame('HOW TO PLAY');
  if(IS_TOUCH)touchBtn(16,14,104,40,'BACK',()=>{sfx('cur');G.screen=G.helpFrom;},{id:'help:back',col:'#9ab'});
  const left=IS_TOUCH?[
-  ['MOVE','Joystick'],['FOCUS','Toggle button'],['SHOOT','FIRE (hold)'],['BOMB','BOMB button'],
-  ['SPELL','SPELL button'],['DEATHBOMB','BOMB / SPELL'],['PAUSE','II button'],
+  ['MOVE','Stick / D-Pad'],['FOCUS','Focus / LB'],['SHOOT','FIRE / PAD A'],['BOMB','BOMB / PAD B'],
+  ['SPELL','SPELL / PAD X'],['DEATHBOMB','BOMB / SPELL'],['PAUSE','II / START'],
   ['MENUS','Stick + FIRE'],['SETTINGS','Title / pause'],['AUDIO','Mute in settings']
  ]:[
-  ['MOVE','Arrows'],['FOCUS','Shift'],['SHOOT','Z (hold)'],['SPELL','C — 1 spell'],
-  ['FLASH','X — when full'],['DEATHBOMB','X / C after hit'],['PAUSE','Esc · R restart'],
-  ['CONFIRM','Z / Enter'],['AUTOFIRE','A toggle'],['AUDIO','M mute · -/+ music']
+  ['MOVE','Arrows / Stick'],['FOCUS','Shift / LB'],['SHOOT','Z / PAD A'],
+  ['SPELL','C / PAD X'],['FLASH','X / PAD B'],['DEATHBOMB','X / C after hit'],
+  ['PAUSE','Esc / START'],['CONFIRM','Z / Enter / A'],['AUTOFIRE','A toggle'],
+  ['AUDIO','M mute · -/+ music']
  ];
  const right=[
   ['GRAZE','Charges flash + OD'],['FLASH','30 graze: clear + damage'],['OVERDRIVE','80 graze: ×1.5 dmg'],
@@ -1494,7 +1645,7 @@ function drawHelp(){
   cx.font='15px "VT323R",monospace';cx.fillStyle='#cfdfe8';cx.fillText(v,412,y-2);
  });
  cx.textAlign='center';cx.fillStyle=UI.dim;cx.font='8px "Pixel8",monospace';cx.textBaseline='top';
- cx.fillText(IS_TOUCH?'TAP BACK TO RETURN':'ESC / Z  BACK',W/2,H-48);
+ cx.fillText(IS_TOUCH?'TAP BACK TO RETURN':(GamepadSupport.enabled&&GamepadSupport.connected?'ESC / Z / PAD B  BACK':'ESC / Z  BACK'),W/2,H-48);
 }
 
 /* ---------- boot/loop ---------- */
@@ -1507,6 +1658,7 @@ function frame(now){
  while(acc>=1000/60){
   acc-=1000/60;
   G.frame++;
+  if(typeof GamepadSupport!=='undefined'&&GamepadSupport.poll)GamepadSupport.poll();
   updatePetals();
   if(IS_TOUCH)TouchUI.updateStick(now);
    if(hitK(KEY.ESC)){
@@ -1520,6 +1672,11 @@ function frame(now){
     }else if(s==='diff'){G.screen='title';sfx('cur');}
     else if(s==='sel'){G.screen='diff';sfx('cur');}
     else if(s==='settings'){G.screen=G.settingsFrom;sfx('cur');}
+    else if(s==='controller'){
+     if(GamepadSupport.listening){GamepadSupport.cancelCapture();G.gpadMsg='BIND CANCELLED';}
+     else G.screen='settings';
+     sfx('cur');
+    }
     else if(s==='help'){G.screen=G.helpFrom;sfx('cur');}
     else if(s==='gameover'){sfx('no');goTitle();}
    }

@@ -51,11 +51,11 @@ const TouchUI={
   else if(now>=s.next){edge[dir]=true;s.next=now+140;}
  }
 };
-const keys={},edge={};
+const keys={},edge={},padKeys={},padEdge={};
 addEventListener('keydown',e=>{if(!keys[e.keyCode])edge[e.keyCode]=true;keys[e.keyCode]=true;if([37,38,39,40,16,27,90,88,67].includes(e.keyCode))e.preventDefault();AudioSys.unlock();});
 addEventListener('keyup',e=>{keys[e.keyCode]=false;});
-const down=k=>!!keys[k],hitK=k=>{if(edge[k]){edge[k]=false;return true}return false};
-function clearEdges(){for(const k in edge)edge[k]=false;}
+const down=k=>!!keys[k]||!!padKeys[k],hitK=k=>{if(edge[k]||padEdge[k]){edge[k]=false;padEdge[k]=false;return true}return false};
+function clearEdges(){for(const k in edge)edge[k]=false;for(const k in padEdge)padEdge[k]=false;}
 
 const DIFFS=['Easy','Original','Absurdly All-Star','1CC','Story'];
 let DIFF=1;
