@@ -10,11 +10,16 @@ const MOB_DEFS={
  weaver:{hp:44,r:13,score:8000,col:'#c060ff',dark:'#4a2a6a'},
  tank:{hp:120,r:18,score:15000,col:'#ff9030',dark:'#6a3a1a'}
 };
-const STORY_WAVE_SIZE=14;
+const STORY_FORMATIONS=[
+ {name:'SWARM',drones:9,weavers:4,tanks:2,gap:34,maxAlive:7},
+ {name:'WEAVE',drones:4,weavers:9,tanks:2,gap:40,maxAlive:6},
+ {name:'SIEGE',drones:5,weavers:3,tanks:5,gap:44,maxAlive:5},
+ {name:'BLITZ',drones:12,weavers:4,tanks:1,gap:30,maxAlive:8},
+ {name:'PHALANX',drones:6,weavers:5,tanks:3,gap:38,maxAlive:6},
+ {name:'HUNT',drones:5,weavers:6,tanks:2,gap:36,maxAlive:5}
+];
 const STORY_POWER_QUOTA=100; /* 1.0 power */
 const STORY_P_VALUE=8; /* matches addPower(8) per P item */
-
-function clearMobs(){mobs.length=0;}
 
 function nearestMobTo(x,y){
  let best=null,bd=Infinity;
@@ -32,7 +37,7 @@ function spawnMob(kind,x,y){
  const m={kind,x,y,vx:0,vy:0,hp:Math.round(def.hp*DSCAL[DIFF].hp),maxHp:Math.round(def.hp*DSCAL[DIFF].hp),
   r:def.r,score:def.score,col:def.col,dark:def.dark,t:0,fireT:irnd(90,140),hurtT:0,dead:false,
   seed:rnd(TAU),baseX:x,tilt:0,volley:0,
-  tx:clamp(x+rnd(-60,60),50,W-50),txDir:Math.random()<.5?-1:1,
+  tx:clamp(x+rnd(-60,60),50,W-50),txDir:rnd()<.5?-1:1,
   ty:kind==='tank'?rnd(80,100):rnd(110,190)};
  mobs.push(m);
  return m;
@@ -49,7 +54,8 @@ function damageMob(m,d){
 function killMob(m){
  const i=mobs.indexOf(m);
  if(i<0||m.dead)return;
- m.dead=true;mobs.splice(i,1);
+ m.dead=true;
+ const l=mobs.pop();if(i<mobs.length)mobs[i]=l;
  fxBurst(m.x,m.y,m.col,14,4);
  fxRing(m.x,m.y,'#fff',6,50,3,18);
  fxSpark(m.x,m.y,'#fff',10);
@@ -132,13 +138,13 @@ function mobUpdate(){
    }
   }
   m.tilt=lerp(m.tilt||0,clamp((m.x-px)*.6,-1,1),.15);
-  if(m.y>H+40||m.t>1800){mobs.splice(i,1);}
+  if(m.y>H+40||m.t>1800){const l=mobs.pop();if(i<mobs.length)mobs[i]=l;}
  }
 }
 
 /* ---------- drops: RNG (P/B/O) with power pity ---------- */
 function storyRngDrop(){
- const r=Math.random();
+ const r=rnd();
  return r<.38?'P':r<.72?'B':'O';
 }
 function storyQuota(w){
@@ -165,19 +171,22 @@ function storyDrop(x,y,kind){
 }
 
 /* ---------- wave control ---------- */
-function buildStoryQueue(){
+function buildStoryWave(){
+ const f=STORY_FORMATIONS[irnd(0,STORY_FORMATIONS.length-1)];
  const q=[];
- for(let i=0;i<6;i++)q.push('drone');
- for(let i=0;i<5;i++)q.push('weaver');
- /* shuffle the light mobs, tanks always last */
- for(let i=q.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const tmp=q[i];q[i]=q[j];q[j]=tmp;}
- q.push('tank','tank','tank');
- return q;
+ for(let i=0;i<f.drones;i++)q.push('drone');
+ for(let i=0;i<f.weavers;i++)q.push('weaver');
+ /* shuffle the light mobs, then commit the armour screen */
+ for(let i=q.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const tmp=q[i];q[i]=q[j];q[j]=tmp;}
+ for(let i=0;i<f.tanks;i++)q.push('tank');
+ return {queue:q,name:f.name,gap:f.gap,maxAlive:f.maxAlive};
 }
 function startStoryWave(){
  if(G.wave||BOSS)return;
- G.wave={queue:buildStoryQueue(),idx:0,spawnT:10,startPower:PL.power,powerSpawned:0,kills:0};
- addText(W/2,180,'STORY WAVE','#8fdfff',20,70);
+ const layout=buildStoryWave();
+ G.wave={queue:layout.queue,name:layout.name,gap:layout.gap,maxAlive:layout.maxAlive,
+  idx:0,spawnT:10,startPower:PL.power,powerSpawned:0,kills:0};
+ addText(W/2,180,'STORY WAVE // '+layout.name,'#8fdfff',20,70);
  const _r=ROUTES[G.routeQueue[G.routeIdx]];
  if(_r)startStageBgm(_r);
 }
@@ -187,10 +196,10 @@ function updateStoryWave(){
  if(BOSS){G.wave=null;return;}
  if(w.idx<w.queue.length){
   w.spawnT--;
-  if(w.spawnT<=0&&mobs.length<6){
+  if(w.spawnT<=0&&mobs.length<w.maxAlive){
    const kind=w.queue[w.idx++];
    spawnMob(kind,rnd(60,W-60),-20);
-   w.spawnT=38;
+   w.spawnT=w.gap;
    if(w.idx===1){addText(W/2,220,'INCOMING!','#ffd700',22,60);sfx('warn');}
   }
  }else if(mobs.length===0){

@@ -2,8 +2,9 @@
 /* ================= BOSS ================= */
 let BOSS=null;
 const PLAYER_NAME='Suzuran';
-let autoFire=false,showFps=false,fpsFrames=0,fpsTime=0,fpsVal=0,demoIdle=0,Gdemo=false,demoKeyLock=0;
+let autoFire=false,showFps=false,fpsFrames=0,fpsTime=0,fpsVal=0,perfLevel=2,perfHold=0,demoIdle=0,Gdemo=false,demoKeyLock=0;
 let demoTX=PL.x,demoTY=PL.y,demoCommit=0,demoFocus=false;
+const _bossGlowCache=new Map();
 function updateDemoMovement(){
  PL.focus=false;
  function scorePos(cx,cy){
@@ -59,16 +60,7 @@ function updateDemoMovement(){
  PL.tilt=((mvx>1)-(mvx<-1))*.2;
 }
 
-function defaultDialog(def){
- if(typeof getBossBanter==='function')return getBossBanter(def);
- const name=def.name||'This guardian';
- return [
-  ['b',`${name} has been waiting for someone foolish enough to reach this boundary.`],
-  ['p','Then I hope the wait was worth it.'],
-  ['b','It will be. I have prepared a very personal welcome.'],
-  ['p','Good. I hate generic hospitality.']
- ];
-}
+function defaultDialog(def){return getBossBanter(def);}
 function startBoss(def,onDone){
  BOSS={def,name:def.name,col:def.col,x:W/2,y:-60,tx:W/2,ty:110,idx:-1,state:'enter',t:0,warnT:96,
   timer:0,hp:0,maxHp:0,hpDisp:1,atk:null,gen:null,rate:.07,dying:0,onDone,moveT:0,idleA:rnd(TAU),
@@ -104,11 +96,11 @@ function bossNextAttack(){
 function startBossDeath(){
  BOSS.dying=1;BOSS.t=0;sfx('bossDie');shake(40,10);
  if(typeof G!=='undefined'&&G){G.freeze=Math.max(G.freeze||0,38);screenFlash(.3,'#fff');}
- for(let i=0;i<40;i++){const a=rnd(TAU),s=rnd(1,6);fx.push({t:'p',x:BOSS.x,y:BOSS.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,c:'#fff',life:irnd(20,50),max:50});}
- for(let i=0;i<10;i++)fx.push({t:'puff',x:BOSS.x+rnd(-30,30),y:BOSS.y+rnd(-24,24),vx:rnd(-.5,.5),vy:rnd(-.8,-.3),sc:rnd(.8,1.4),life:irnd(26,44),max:44});
- for(let i=0;i<4;i++)fxSpr('fx_cannonfire',BOSS.x+rnd(-20,20),BOSS.y+rnd(-16,16),rnd(.35,.7),.9,rnd(-1.2,-.2));
- if(ASSETS.fx_destruction)fx.push({t:'spr',img:'fx_destruction',x:BOSS.x,y:BOSS.y,vx:0,vy:0,sc:2,al:.9,rot:rnd(TAU),life:34,max:34});
- for(let i=0;i<5;i++)fxRing(BOSS.x+rnd(-40,40),BOSS.y+rnd(-40,40),BOSS.col[0],10,160,6,34);
+ for(let i=0;i<40;i++){const a=vrnd(TAU),s=vrnd(1,6);fx.push({t:'p',x:BOSS.x,y:BOSS.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,c:'#fff',life:virnd(20,50),max:50});}
+ for(let i=0;i<10;i++)fx.push({t:'puff',x:BOSS.x+vrnd(-30,30),y:BOSS.y+vrnd(-24,24),vx:vrnd(-.5,.5),vy:vrnd(-.8,-.3),sc:vrnd(.8,1.4),life:virnd(26,44),max:44});
+ for(let i=0;i<4;i++)fxSpr('fx_cannonfire',BOSS.x+vrnd(-20,20),BOSS.y+vrnd(-16,16),vrnd(.35,.7),.9,vrnd(-1.2,-.2));
+ if(ASSETS.fx_destruction)fx.push({t:'spr',img:'fx_destruction',x:BOSS.x,y:BOSS.y,vx:0,vy:0,sc:2,al:.9,rot:vrnd(TAU),life:34,max:34});
+ for(let i=0;i<5;i++)fxRing(BOSS.x+vrnd(-40,40),BOSS.y+vrnd(-40,40),BOSS.col[0],10,160,6,34);
  clearBullets(true);
  itemSpray(BOSS.x,BOSS.y,16,'B');itemSpray(BOSS.x,BOSS.y,8,'P');
  spawnItem('L',BOSS.x,BOSS.y);
@@ -150,7 +142,7 @@ function bossAttackEnd(captured){
  clearBullets(true);
  BOSS.atk=null;BOSS.gen=null;BOSS.cutin=0;BOSS.spellActive=false;
  BOSS.state='rest';BOSS.t=0;
- itemSpray(BOSS.x,BOSS.y,6,Math.random()<.5?'P':'B');
+ itemSpray(BOSS.x,BOSS.y,6,rnd()<.5?'P':'B');
 }
 function parseG(g){
  if(typeof g==='string'){const i=g.indexOf(':');return i<0?{g}:{g:g.slice(0,i),c:g.slice(i+1)};}
@@ -192,7 +184,10 @@ function bossUpdate(){
  if(BOSS.state==='enter'){
   BOSS.y=lerp(BOSS.y,110,.05);BOSS.x=lerp(BOSS.x,W/2,.05);
   if(BOSS.t>80){
-   if(BOSS.dlg&&BOSS.dlg.length){BOSS.state='dialog';BOSS.dT=0;BOSS.dShown=0;}
+   if(BOSS.dlg&&BOSS.dlg.length){
+    if(typeof Replay!=='undefined')Replay.captureDialogue(BOSS.def.id,BOSS.dlg);
+    BOSS.state='dialog';BOSS.dT=0;BOSS.dShown=0;
+   }
    else{BOSS.state='fight';bossNextAttack();}
   }
  }else if(BOSS.state==='dialog'){
@@ -243,8 +238,10 @@ function drawBoss(){
  cx.strokeStyle=b.col[0];cx.lineWidth=2;
  for(let k=0;k<3;k++){cx.save();cx.rotate(performance.now()/(1400+k*700)*(k%2?-1:1));
   cx.beginPath();for(let i=0;i<=6;i++){const a=i/6*TAU;const r=(34+k*9)*pul;cx[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);}cx.stroke();cx.restore();}
- const grd=cx.createRadialGradient(0,0,4,0,0,30);
- grd.addColorStop(0,'#fff');grd.addColorStop(.4,b.col[0]);grd.addColorStop(1,'rgba(0,0,0,0)');
+ let grd=_bossGlowCache.get(b.col[0]);
+ if(!grd){grd=cx.createRadialGradient(0,0,4,0,0,30);
+  grd.addColorStop(0,'#fff');grd.addColorStop(.4,b.col[0]);grd.addColorStop(1,'rgba(0,0,0,0)');
+  _bossGlowCache.set(b.col[0],grd);}
  cx.fillStyle=grd;cx.beginPath();cx.arc(0,0,30,0,TAU);cx.fill();
  if(b.hurtT>0){
   cx.save();cx.globalCompositeOperation='lighter';
@@ -257,13 +254,13 @@ function drawBoss(){
   cx.restore();
  }
  if(G.frame%5===0&&fx.length<300&&b.state==='fight'){
-  const aa=rnd(TAU);
+  const aa=vrnd(TAU);
   fx.push({t:'trail',x:x+Math.cos(aa)*34,y:y+Math.sin(aa)*34,c:b.col[0],life:14,max:14});
  }
  cx.fillStyle='rgba(255,255,255,.92)';cx.font='bold 22px monospace';cx.textAlign='center';cx.textBaseline='middle';
  cx.fillText(b.name[0],0,1);
  cx.restore();
- if(b.spellActive&&b.state==='fight'){
+ if(b.spellActive&&b.state==='fight'&&perfLevel>=1){
   drawMagicCircleFloor(x,y);
  }
 }

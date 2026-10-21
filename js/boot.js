@@ -442,6 +442,12 @@ var TouchPad={
 if(typeof window!=='undefined')window.TouchPad=TouchPad;
 if(typeof globalThis!=='undefined')globalThis.TouchPad=TouchPad;
 
+if(document.fonts&&typeof document.fonts.load==='function'){
+ try{
+  document.fonts.load('16px "Pixel8"');
+  document.fonts.load('16px "VT323R"');
+ }catch(err){}
+}
 fit();
 syncPad();
 })();

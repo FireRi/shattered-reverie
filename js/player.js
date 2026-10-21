@@ -25,7 +25,7 @@ function tryDeathbomb(){
 }
 function clearBullets(toItems){
  for(let i=eshots.length-1;i>=0;i--){const b=eshots[i];
-  if(toItems&&Math.random()<.12&&items.length<200)spawnItem(Math.random()<.7?'B':'P',b.x,b.y);
+  if(toItems&&rnd()<.12&&items.length<200)spawnItem(rnd()<.7?'B':'P',b.x,b.y);
   if(fx.length<300)fxSpark(b.x,b.y,'#aaf',8);
   killE(i);
  }
@@ -83,7 +83,8 @@ function updatePlayerMovement(){
  PL.focus=down(KEY.SHIFT)||TouchUI.focus;
  const sp=PL.focus?3.2:5.5;
  let dx=(down(KEY.RIGHT)?1:0)-(down(KEY.LEFT)?1:0),dy=(down(KEY.DOWN)?1:0)-(down(KEY.UP)?1:0);
- if(IS_TOUCH&&TouchUI.stick.active){dx=TouchUI.stick.ax;dy=TouchUI.stick.ay;}
+ if(typeof Replay!=='undefined'&&Replay.playback&&Replay.analog){dx=Replay.ax;dy=Replay.ay;}
+ else if(IS_TOUCH&&TouchUI.stick.active){dx=TouchUI.stick.ax;dy=TouchUI.stick.ay;}
  const mag=Math.hypot(dx,dy);
  if(mag>1){dx/=mag;dy/=mag;}
  PL.x=clamp(PL.x+dx*sp,12,W-12);PL.y=clamp(PL.y+dy*sp,12,H-12);
@@ -146,7 +147,6 @@ function tickMonochromeRay(){
 }
 let _neC=null,_neF=-1;
 function _ne(){if(_neF!==G.frame){_neC=(BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.atk&&BOSS.cutin<=0)?BOSS:null;_neF=G.frame;}return _neC;}
-function nearestEnemy(){_ne();return _neC;}
 const BOSS_HIT_R=26;
 function updateOptions(n,spread=true){
  PL.opts.length=n;

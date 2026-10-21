@@ -34,6 +34,7 @@ index.html
   ├── js/
   │   ├── engine.js      Core systems (loaded first, defines globals)
   │   ├── gamepad.js     Gamepad API bridge + remappable bindings
+  │   ├── replay.js      Deterministic input/RNG recorder + shareable run files
   │   ├── audio.js       SFX synthesis + music volume buses
   │   ├── music.js       Per-stage/boss procedural score generator
   │   ├── player.js      Player ship, shots, bombs, graze
@@ -63,8 +64,8 @@ All game code lives in `js/`; the entry point, Vercel API, and static assets sta
 The dependency chain is:
 
 ```
-engine.js + gamepad  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
-(core + input)          (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
+engine.js + gamepad + replay  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
+(core + input + runs)            (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -84,12 +85,14 @@ The foundation layer. Contains everything that must exist before any content:
 |---------|-------------|
 | Config & constants | Screen dimensions, color palette, key bindings, hitbox radii |
 | Input system | Edge-triggered (`hitK`) and held (`down`) key polling, per-tick edge clearing |
+| Deterministic RNG | `SimRng` (`rnd`, `irnd`, `pick`) feeds simulation and replay logs; `vrnd` feeds visual-only variation |
 | Object pooling | `killE`/`spawnE` recycle bullet objects to reduce GC pressure |
 | Entity arrays | `eshots[]`, `pshots[]`, `items[]`, `fx[]`, `ftext[]`, `elasers[]`, `mobs[]` |
 | Field reset | `resetFieldSafe()` wipes shots, items, lasers and mobs on continue / quit-to-title |
 | Player shots | `pUpdate()` tests the boss first, then every mob; dead homing targets retarget |
-| Audio system (`audio.js`) | Web Audio context management, SFX synthesis, sample-buffer playback, volume buses |
-| Music engine (`music.js`) | Stage palettes + per-boss themes, 16-bar arrangements, spell-card phases |
+| Audio system (`audio.js`) | Web Audio context management, graceful no-audio fallback, SFX synthesis, sample-buffer playback, volume buses |
+| Music engine (`music.js`) | Stage palettes + per-boss themes, 36-bar form with intro/verse/chorus/bridge/climax/outro, loop variation, spell-card phases |
+| Replay (`replay.js`) | Input mask + deterministic RNG log, dialogue snapshot, local save, JSON export/import, playback state |
 | Player (`player.js`) | Movement, shooting, options, graze, flash bomb, spell, trance, deathbomb |
 | Boss framework (`boss.js`) | State machine (enter→dialog→fight→rest), attack lifecycle, damage rates |
 | Item system | Spawning, magnet collection, floor expiry (P/B/L/S/K/O — O feeds the OD meter) |
@@ -114,12 +117,39 @@ keyboard, so a controller can be used alongside the keyboard or DOM touch pad.
 
 Standard-mapped pads use friendly labels (`A`, `LB`, `START`, `D-LEFT`); a
 non-standard pad shows `BTN <index>` so the player can remap it. The bridge
-supports hotplug polling and the first connected pad, assumes left-stick axes
-`0/1` and D-pad buttons `12-15`, and does not use rumble. Gamepad API support
-depends on the browser and operating system; current Chrome, Edge, Firefox and
-iOS Safari expose it, while some embedded or older browsers do not. Keyboard
-and touch input remain available when no pad is connected or controller input
-is disabled.
+supports hotplug polling and the first connected pad. Navigation scans axes
+`0/1`, `2/3`, and `4/5` and uses the strongest plausible pair, which covers
+pads whose stick is not on axes `0/1`; D-pad buttons `12-15` take priority.
+Rumble and motion are not used. Gamepad API support depends on the browser and
+operating system; current Chrome, Edge, Firefox and iOS Safari expose it, while
+some embedded or older browsers do not. Keyboard and touch input remain
+available when no pad is connected or controller input is disabled.
+
+### js/replay.js
+
+Deterministic run recorder and playback layer. Gameplay randomness goes through
+`SimRng` (`rnd`, `irnd`, `pick`); `replay.js` stores a log of those values beside
+the per-frame input mask, so simulation replays identically without serializing
+the full game state. Visual-only randomness uses `vrnd` and is excluded.
+
+| Area | Behavior |
+|------|----------|
+| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges |
+| Dialogues | The four lines that appeared during the attempt are stored with the replay, so shared files keep their banter |
+| Save | `lasr_replay` stores the last completed or failed single-credit attempt (4.2 MB cap) |
+| Playback | Reconstructs the route, difficulty, mode flags, auto-fire state, and deterministic RNG; pausing is allowed but restart is blocked |
+| Playback HUD | The top-right status flags are replaced by `REPLAY <frame>/<total>` while a replay runs |
+| Sharing | `exportData()` / `download()` produce a `.json` run file; `importData()` / `requestImport()` validate and load it |
+| End | Playback exhaustion or death opens the results screen without writing a high score; the report is tagged `REPLAY // COMPLETE`, `REPLAY // FAILED`, or `REPLAY ENDED // NO SCORE SAVED` |
+
+The Replay screen opens from Settings or the title (`V` on desktop, the `REPLAY`
+touch button) and offers five rows: play the saved attempt, export it as JSON,
+import a shared JSON run, delete the local save, or go back. A newly recorded
+attempt adds `REPLAY SAVED // SETTINGS > REPLAY` to its results report.
+
+Replays are attempts, not full multi-credit sessions: continuing or retrying
+after a game over starts a fresh segment and does not stitch the previous
+segment into the file.
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -157,9 +187,9 @@ is true (selected from the difficulty menu).
 |-------|-------------|
 | Mob types | `drone` (aimed 3-way), `weaver` (wide fan), `tank` (ring + aimed kunai). Eased movement toward drifting anchors, banking tilt, HP bars. |
 | Telegraphs | Every volley flashes a ring ~25 frames early; no fire during entry or off-stage; tank rings leave a gap facing the player. |
-| Wave control | 14-mob queue (`startStoryWave` / `updateStoryWave`), max 6 alive, wave-clear bonus + boss handoff. |
+| Wave control | Six formations (`SWARM`, `WEAVE`, `SIEGE`, `BLITZ`, `PHALANX`, `HUNT`) with different mob mixes, gaps, and alive caps (`startStoryWave` / `updateStoryWave`); wave-clear bonus + boss handoff. |
 | Drops | RNG loot per kill — P (power), B (points), O (overload: +12 OD, +2 flash). Tanks drop 3. |
-| Power guarantee | A pity counter forces P drops when the remaining mobs can't cover the missing power, plus a top-up at wave clear, so the player always gains +1.0 (100) power before each boss. |
+| Power guarantee | A pity counter forces P drops when the remaining mobs can't cover the missing power, plus a top-up at wave clear, so the player always gains up to +1.0 (100) power before each boss regardless of formation. |
 
 Mobs plug into the existing combat: player shots, beam, homing options, spell
 ray, deathbomb and flash bomb all damage them (`damageMob` / `killMob`), and
@@ -170,23 +200,25 @@ body contact kills the player like a boss collision.
 Game state machine, screen renderer, HUD, menus, results screen, music-reactive
 visuals, and the requestAnimationFrame loop.
 
-The difficulty menu offers five modes: Easy, Original, Absurdly All-Star,
-1CC (Original scaling, full route, 1 credit, no continues) and Story
-(Original scaling + mob waves). Modes are exclusive — Story and 1CC cannot be
-combined. Selecting 1CC skips stage select and starts the full route
-immediately. Story still uses stage select.
+The difficulty menu offers six modes: Easy, Original, Absurdly All-Star,
+1CC (Original scaling, full route, 1 credit, no continues), Story
+(Original scaling + mob waves, 3 credits), and Story 1CC (the story wave
+campaign with one credit and no continues). Selecting a 1CC mode skips stage
+select and starts the full route immediately. Story still uses stage select.
 
-Credit system: normal runs start with 3 coins; 1CC starts with 1. No coin is
-spent automatically on death. The game-over screen offers Continue at the
-current boss or Retry the stage, each costing one coin (`spendCredit()`).
-Pause → Restart Stage also costs one coin and immediately ends 1CC eligibility.
-A 1CC death goes straight to results as a failure; 1CC CLEAR requires the full
-route with zero credits spent. The HUD always shows `CREDIT ×N` (hidden only in
-demo playback); the results screen totals credits used.
+Credit system: normal runs start with 3 coins; 1CC and Story 1CC start with 1.
+No coin is spent automatically on death. The game-over screen offers Continue
+at the current boss or Retry the stage, each costing one coin
+(`spendCredit()`). Pause → Restart Stage also costs one coin and immediately
+ends 1CC eligibility. A 1CC or Story 1CC death goes straight to results as a
+failure; a clear requires the full route with zero credits spent. The HUD
+always shows `CREDIT ×N` (hidden only in demo playback); the results screen
+totals credits used.
 
 Story flow: `G.needWave` / `G.wave` interleave one mob wave before every boss —
 `beginBossFight()` fires only after the wave reports clear (see `story.js`).
 The transition clears leftover bullets and grants brief invulnerability.
+Story 1CC uses the same flow with one credit and no continues.
 
 State machine:
 ```
@@ -194,14 +226,18 @@ title → diff → sel → play ⇄ pause
                        play → gameover → play (continue/retry) or title
                        play → result → title
                      play → result (1CC failure) → title
+
+title / settings → replay → play (playback, no score) → result → title
 ```
 
-Persistence: `lasr_hi`, `lasr_diff`, `lasr_mvol`, `lasr_svol`, `lasr_mute`,
-`lasr_settings` (JSON: music/SFX volume, mute, shake, bloom, flash, auto-fire,
-FPS, AI dialogue), and `lasr_gamepad` (controller enable flag + button map).
-Settings are available from the title (S), pause menu, and touch settings. The
-Controller row opens a dedicated remap screen; keyboard and touch input remain
-active throughout.
+Persistence: `lasr_hi` plus per-difficulty `lasr_hi_0`–`lasr_hi_2`,
+`lasr_diff` (saved 0–2 difficulty), `lasr_sel` (stage-select flags),
+`lasr_mvol`, `lasr_svol`, `lasr_mute`, `lasr_settings` (JSON: music/SFX volume,
+mute, shake, bloom, flash, auto-fire, FPS, AI dialogue), `lasr_gamepad`
+(controller enable flag + button map), and `lasr_replay` (last attempt +
+shareable run data). Settings are available from the title (S), pause menu, and
+touch settings. The Replay row opens the run viewer; the Controller row opens a
+dedicated remap screen. Keyboard and touch input remain active throughout.
 
 ### js/cabinet.js
 
@@ -215,11 +251,11 @@ HUD instead.
 The left panel shows the current route art (via `routeBgKey()`), route number,
 sector ID, stage title, route mode, and difficulty. The right panel mirrors
 score, lives, spell stocks, power, flash, overdrive, graze, sparks, deaths,
-captured spells, wave progress, streak, and optional autofire/mute/FPS flags.
-Boss fights replace the normal in-canvas score/status/route layout with a
-compact top strip containing the boss name, HP bar, bosses remaining, timer,
-and spell banner. The cabinet layer is pointer-transparent and hidden whenever
-the compact HUD is in use.
+captured spells, wave progress, streak, quality level, and optional
+autofire/mute/FPS flags. Boss fights replace the normal in-canvas
+score/status/route layout with a compact top strip containing the boss name,
+HP bar, bosses remaining, timer, and spell banner. The cabinet layer is
+pointer-transparent and hidden whenever the compact HUD is in use.
 
 ---
 
@@ -437,6 +473,24 @@ player should remap the six actions. Rumble and motion are not used. Gamepad
 support depends on browser/OS recognition; keyboard and DOM touch controls stay
 active and can be used to reach Settings if a pad is not detected.
 
+### 3.8 Keyboard Shortcuts
+
+| Key | Context | Action |
+|-----|---------|--------|
+| Arrows | Play / menus | Move / navigate |
+| Shift | Play | Focus (slow movement + homing options) |
+| Z / Enter | Play / menus | Shoot / confirm |
+| C | Play | Cast a spell |
+| X | Play | Flash bomb (also cancels the pause confirmation) |
+| Esc | Play / menus | Pause / back |
+| R | Play / game over | Pause at Restart / retry the stage |
+| S / H | Title | Settings / help |
+| V | Title | Open Replay |
+| A | Any except playback | Toggle auto-fire |
+| F | Any | Toggle the FPS readout |
+| M | Any | Mute all audio |
+| `-` / `+` | Any | Lower / raise music volume |
+
 ---
 
 <a name="patterns"></a>
@@ -535,6 +589,7 @@ DIFF_ORIG = 1   // baseline
 DIFF_ABEX = 2   // DN×2.2, DV×1.28, boss HP×1.15
 MODE_1CC  = 3   // Original scaling, full route, 1 credit, no continues; restart forfeits clear
 MODE_STORY = 4  // Original scaling + pre-boss mob waves, 3 credits (see story.js)
+MODE_STORY_1CC = 5 // Story waves + full route, 1 credit, no continues
 ```
 
 ---
@@ -566,20 +621,34 @@ ShibayanRecords textures. All note data is original and generated per seed.
 | EX | Reverie | lydian/mixolydian/dorian | breakbeat | dreamlike, off-kilter |
 | EXA | Void | phrygian dominant/harmonic | metal | monochrome, maximal chaos |
 
-Boss seeds select a root offset, mode, 8-bar progression, lead waveform,
-16-step rhythm masks and melodic contours within that palette. The result is a
-shared stage identity with 44 distinct boss themes (verified unique in tests).
-Stage music plays during waves and route travel; the boss theme starts on
-boss entry and intensifies per spell card.
+Boss seeds select a root offset, mode, 8-bar progression, lead waveform, and a
+pair of hook motifs within that palette. The result is a shared stage identity
+with 44 distinct boss themes (verified unique in tests). Stage music plays
+during waves and route travel; the boss theme starts on boss entry and
+intensifies per spell card.
 
 ### Track Structure
 
-- **16-bar loop** (`bar = floor(step/16) % 16`) with 4-bar sections.
-- **Lead phrases**: 8 bars of motif A, then 8 bars of motif B, built from
-  in-key scale degrees against each chord (chord tones and passing tones).
-- **Arrangement gating**: intro groove first, lead in the second section,
-  counter-melody and 16th hats at high phase, tom/snare fills every 4 bars,
-  stage breakdown at bar 7.
+- **36-bar form** (`bar = floor(step/16) % 36`): intro 8, verse 8, chorus 8,
+  bridge 4, climax 6, and outro 2 bars.
+- **Hook motifs**: each theme draws two rhythmic/pitch cells (a "question" A
+  motif ending unresolved and an "answer" B motif resolving to the chord root).
+  The melody states A in the intro/verse and B in the chorus/climax, transposed
+  to follow the harmony, so a short hook repeats over changing chords. Strong
+  beats snap to chord tones while passing tones ride the off-beats; the last
+  bar of each 4-bar phrase cadences to the chord root.
+- **Harmony color**: S1 adds suspended thirds on the sway; S2 stacks seventh and
+  ninth extensions for its rainy flow; S3 opens into ninth-stacked trance
+  triads. Extensions feed the arp and counter-line, not the pad.
+- **Arrangement gating**: drums enter after the opening, bass and arp build the
+  verse, the lead arrives at bar 12, counter-melody and full hats join the
+  chorus/climax, and the outro strips back to pad/bass. Tom/snare fills land
+  every 4 bars; stage breakdowns sit at bars 7 and 23.
+- **Rhythm feel**: S1 keeps root/fifth half-time rock bass; S2 runs an up/down
+  arpeggio over its breakbeat; S3 switches to off-beat eurobeat bass (octave
+  pump at the climax) with a 16th-note up/down arp.
+- **Loop variation**: odd loops add an extra arp step and alter accents while
+  preserving the seeded theme. The track is still deterministic per seed.
 - **Spell phases**: `startBossBgm(def, phase)` advances arrangement energy.
   Phase 1 (first spell) opens the lead; phase 2 (later/final spells) adds
   counter-lines and sparkle. The theme itself never swaps mid-boss.
@@ -587,7 +656,7 @@ boss entry and intensifies per spell card.
 ### Architecture
 
 ```
-Music.buildBoss(def, phase)   → deterministic per-boss config + 16-bar score
+Music.buildBoss(def, phase)   → deterministic per-boss config + 36-bar score
 Music.buildStage(route)       → stage palette track for waves/route travel
 Music.tick()                  → lookahead scheduler (40ms interval, 240ms buffer)
 Music.scheduleStep()          → synthesizes one 16th note with WebAudio nodes
@@ -640,18 +709,31 @@ drawScreen()
 The pause screen draws the frozen field underneath its overlay. Management
 screens (settings/help) share the menu background and petal/star animation.
 
+`updatePerformance()` samples `fpsVal` once per second and caps `perfLevel`
+with hysteresis. At level 1 it disables the bloom pass; at level 0 it also
+removes bullet halos, nebula parallax, and the seigaiha spell wallpaper. This is
+a rendering-quality fallback only: simulation, collision, and input timing stay
+at the fixed 60 Hz step.
+
 ### Draw Call Budget
 
-At peak density (~500 bullets):
-- ~500 `arc` fills + strokes for ball bullets
-- ~100 `fillRect` calls for effects
+Enemy bullets are drawn as a single `drawImage` each from a sprite cache keyed
+by `family|color|tier`: `bulletSprite()` pre-composites halo + body + highlight
+for asset-backed families, and `proceduralSprite()` bakes the plain circle,
+orb, star, and bubble shapes (halo + fill + edge) so the common untextured
+colors (`ball:white`, `ball:gray`, `orb:brown`, …) never fall back to per-frame
+`arc` fills or `createRadialGradient`. At peak density (~500 bullets) the
+per-frame budget is:
+
+- ~500 bullet `drawImage` blits (cached sprites, scaled/rotated)
+- ~100 small `drawImage`/`fillRect` calls for effects
 - ~10 text draws for HUD
-- 1 `drawImage` for background gradient cache
+- 1 `drawImage` for the background gradient cache
 - 4 `drawImage` for nebula tiles
 
-Canvas state changes (fillStyle, strokeStyle, globalAlpha) are minimized
-by batching same-style operations and avoiding gradient creation inside
-per-entity loops.
+Canvas state changes (fillStyle, strokeStyle, globalAlpha) are minimized by
+batching same-style operations, reusing cached gradients, and avoiding
+per-entity gradient allocation.
 
 ---
 
@@ -692,6 +774,7 @@ Generated at startup into cached offscreen canvases:
 | `gen_disc` | Filled circle |
 | `gen_seigaiha` | Concentric arc scales in overlapping rows (traditional Japanese pattern) |
 | Tinted sprites | Source sprite + `source-in` fill = recolored copy, cached by `(sprite, color, size)` key |
+| Bullet sprites | Halo + body + highlight composited once per `(family, color, tier)` into a 96px canvas (`bulletSprite`/`proceduralSprite`) |
 
 ---
 
@@ -728,6 +811,9 @@ Optional local harnesses (kept outside the repo) also exercise runtime behavior:
 ```powershell
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\all-boss-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-flow-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\music-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"; Remove-Item Env:TOUCH
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
@@ -742,14 +828,27 @@ portrait sizes.
 
 `all-boss-check.js` runs all 44 bosses and 102 attacks, rejecting generator
 exceptions, non-finite bullets, cap overruns, and attacks that never fire.
+`replay-check.js` records and replays 5,000 frames without RNG starvation;
+`replay-flow-check.js` covers save/export/import, playback ending in results,
+input cleanup, auto-fire restoration, adaptive performance tiers, and the
+no-AudioContext fallback. `music-check.js` validates the 36-bar form,
+arrangement sections, outro gating, and finite lead events. The `*-shot.js`
+harnesses are optional visual passes; `replay-shot.js` captures the Replay
+screen and playback HUD.
 
 Manual regression checklist:
 - Title → difficulty → stage select → play.
 - 1CC selection starts the full route immediately with 1 credit.
+- Story 1CC selection starts the full story route with 1 credit and no continues.
 - Normal death opens game over without spending a credit; C, Z, or R spend one.
 - Pause → Restart Stage confirms, spends one credit, and ends 1CC eligibility.
-- 1CC death reaches results marked 1CC FAILED.
-- Story wave clears into the boss with no leftover bullets.
+- 1CC and Story 1CC deaths reach results marked FAILED.
+- Story formations rotate and each clears into its boss with no leftover bullets.
+- Replay: finish a run, open Settings/Title → Replay, play it back, then export
+  and re-import the `.json` file. The HUD shows `REPLAY <frame>/<total>` during
+  playback. Playback ends in results without saving a high score and reports
+  `REPLAY // COMPLETE`, `REPLAY // FAILED`, or `REPLAY ENDED // NO SCORE SAVED`;
+  pause restart is unavailable.
 - Boss dialogue shows four alternating lines; AI-off and API-failure paths use local banter.
 - Title BGM restarts after results or quitting from pause.
 - Each boss starts its own theme; spell cards intensify the same theme rather
@@ -894,24 +993,36 @@ All sprite usage has vector fallbacks for headless testing.
 <a name="limitations"></a>
 ## 11. Known Limitations
 
-- **Single-threaded**: All updates and rendering run on the main thread.
-  At extreme bullet counts (>1200), frame time may spike during dense spells.
-- **No replay system**: The game state is not serialized, so replays would
-  require recording all inputs deterministically.
-- **Fixed resolution**: 640×480 internal, scaled by CSS. No widescreen support.
-  On phones, landscape uses most of the screen; portrait is letterboxed and
-  prompts rotation, though the game remains playable if skipped.
-- **Procedural music limitations**: Themes follow 16-bar loops with
-  intro/lead/climax sections and spell-card phases, but there is no authored
-  intro/outro or live performance variation — the loop is the song.
-- **Modes are exclusive**: Story and 1CC cannot be combined — Story always
-  runs at Original scaling with 3 credits.
-- **Fixed story waves**: every pre-boss wave uses the same 14-mob composition
-  (6 drones, 5 weavers, 3 tanks); only the spawn order and positions are random.
-- **No netplay**: The game is single-player only.
-- **Browser compatibility**: Requires Web Audio API and PeriodicWave support
-  (all modern browsers, but not IE11).
+- **Single-threaded rendering**: All updates and drawing still run on the main
+  thread. Adaptive quality now drops bloom, bullet halos, background nebula,
+  and spell wallpaper when FPS falls below 53 or the effect count exceeds 800,
+  with a second tier below 42 FPS or above 1100 effects. Extremely dense
+  custom patterns can still spike before the one-second sampler reacts.
+- **Replay scope**: Replays store deterministic input masks, `SimRng` output,
+  and the four dialogue lines. They capture the last single-credit attempt,
+  not a full multi-credit session. The playback HUD is frame progress only:
+  there is no seek/rewind, timeline scrubbing, live ghost overlay, or state
+  serialization. Sharing is asynchronous JSON export/import, not real-time
+  netplay.
+- **Fixed 4:3 playfield**: The simulation remains 640×480 and is scaled
+  uniformly. Widescreen cabinets add side telemetry in the gutters rather than
+  expanding the playfield, so native 16:9 gameplay is intentionally unsupported.
+- **Procedural music**: Themes are generated, not authored recordings. Each
+  track now has a 36-bar intro/verse/chorus/bridge/climax/outro form, seeded
+  loop variation, and spell-card phases, but there are no audio files, live
+  performers, or fully composed transitions.
+- **Story scaling**: Story and Story 1CC run at Original scaling. Story uses
+  three credits; Story 1CC uses one credit and no continues. Other difficulties
+  apply to the standard and 1CC routes.
+- **Browser compatibility**: Modern browsers are the target. Missing Web Audio
+  or `PeriodicWave` support degrades to silent procedural audio rather than
+  blocking play. Fullscreen and orientation lock remain API-dependent, and
+  IE11 is unsupported.
 - **Controller compatibility**: Depends on the browser and OS exposing the pad
   through the Gamepad API. Standard-mapped pads work directly; non-standard
-  pads need remapping. Axes are assumed to be left stick `0/1`, D-pad buttons
-  `12-15`, and rumble/motion are not used. Hotplug is detected by polling.
+  pads show raw button indexes and need remapping. Navigation scans likely
+  axis pairs, but rumble and motion are not used. Hotplug is detected by
+  polling.
+- **Device and service validation**: Real-device touch spacing, safe areas,
+  fullscreen behavior, non-standard controller hardware, and live Groq output
+  still require manual testing with the target devices and API key.

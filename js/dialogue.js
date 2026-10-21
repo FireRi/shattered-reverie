@@ -257,6 +257,7 @@ function hasAiBanter(id){
  return !!id&&validBanter(_aiBanter[id]);
 }
 function getBossBanter(def){
+ if(typeof Replay!=='undefined'){const replay=Replay.dialogueFor(def.id);if(replay)return replay;}
  const cached=_aiBanter[def.id];
  if((typeof G==='undefined'||G.aiDialogue!==false)&&validBanter(cached))return cached.map(line=>[line[0],line[1]]);
  const base=BOSS_BANTER[def.id];

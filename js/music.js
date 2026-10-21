@@ -21,9 +21,9 @@ const MUSIC_SCALES={
  mixolydian:[0,2,4,5,7,9,10]
 };
 const MUSIC_STYLES={
- S1:{root:53,modes:['aeolian','dorian'],progs:[[0,5,3,4,0,5,6,4],[0,3,5,4,0,6,3,4],[0,5,6,4,0,3,4,4]],bpm:148,leads:['pulse25','triangle'],arp:'square',pad:'triangle',drums:'half',swing:.045,echo:.2,feedback:.26,roots:[0,2,3,5,-2],leadLow:62,leadHigh:86,seventh:false},
- S2:{root:50,modes:['dorian','aeolian'],progs:[[0,3,5,4,0,3,6,4],[0,5,3,4,0,2,3,4],[0,3,1,4,0,6,5,4]],bpm:152,leads:['triangle','pulse25'],arp:'triangle',pad:'sawtooth',drums:'break',swing:.055,echo:.28,feedback:.32,roots:[0,2,5,-2,3],leadLow:62,leadHigh:88,seventh:true},
- S3:{root:55,modes:['ionian','lydian','mixolydian'],progs:[[0,4,5,3,0,4,6,4],[0,5,3,4,0,6,5,4],[0,4,1,5,0,4,5,3]],bpm:160,leads:['sawtooth','pulse25'],arp:'square',pad:'sawtooth',drums:'four',swing:.025,echo:.17,feedback:.24,roots:[0,-2,2,5,3],leadLow:64,leadHigh:90,seventh:false},
+ S1:{root:53,modes:['aeolian','dorian'],progs:[[0,5,3,4,0,5,6,4],[0,3,5,4,0,6,3,4],[0,5,6,4,0,3,4,4]],bpm:148,leads:['pulse25','triangle'],arp:'square',pad:'triangle',drums:'half',swing:.045,echo:.2,feedback:.26,roots:[0,2,3,5,-2],leadLow:62,leadHigh:86,seventh:false,bassStyle:'root',arpMode:'up',ninth:false,sus:true},
+ S2:{root:50,modes:['dorian','aeolian'],progs:[[0,3,5,4,0,3,6,4],[0,5,3,4,0,2,3,4],[0,3,1,4,0,6,5,4]],bpm:152,leads:['triangle','pulse25'],arp:'triangle',pad:'sawtooth',drums:'break',swing:.055,echo:.28,feedback:.32,roots:[0,2,5,-2,3],leadLow:62,leadHigh:88,seventh:true,bassStyle:'root',arpMode:'updown',ninth:true,sus:false},
+ S3:{root:55,modes:['ionian','lydian','mixolydian'],progs:[[0,4,5,3,0,4,6,4],[0,5,3,4,0,6,5,4],[0,4,1,5,0,4,5,3]],bpm:160,leads:['sawtooth','pulse25'],arp:'square',pad:'sawtooth',drums:'four',swing:.025,echo:.17,feedback:.24,roots:[0,-2,2,5,3],leadLow:64,leadHigh:90,seventh:false,bassStyle:'offbeat',arpMode:'updown',arp16:true,ninth:true,sus:false},
  S4:{root:51,modes:['phrygian','aeolian'],progs:[[0,1,0,4,0,1,5,4],[0,3,1,4,0,5,1,4],[0,1,5,4,0,1,3,4]],bpm:144,leads:['square','pulse25'],arp:'triangle',pad:'sawtooth',drums:'half',swing:.02,echo:.25,feedback:.31,roots:[0,1,-2,3,5],leadLow:60,leadHigh:84,seventh:true},
  S5:{root:45,modes:['harmonic','phrygianDom'],progs:[[0,5,6,4,0,5,3,4],[0,3,4,0,5,4,6,4],[0,5,1,4,0,6,5,4]],bpm:166,leads:['sawtooth','square'],arp:'square',pad:'sawtooth',drums:'metal',swing:.015,echo:.15,feedback:.22,roots:[0,2,3,5,-2],leadLow:62,leadHigh:88,seventh:false},
  S6:{root:48,modes:['harmonic','aeolian'],progs:[[0,5,2,6,0,5,3,4],[0,4,5,3,0,6,5,4],[0,5,6,4,0,3,4,4]],bpm:158,leads:['pulse25','sawtooth'],arp:'square',pad:'sawtooth',drums:'four',swing:.025,echo:.24,feedback:.29,roots:[0,2,5,-2,3],leadLow:64,leadHigh:90,seventh:true},
@@ -69,25 +69,26 @@ const MUSIC_BASS={
  break:[1,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0],
  metal:[1,0,1,1,0,1,0,1,1,0,1,0,1,1,0,1]
 };
-const MUSIC_RHYTHMS=[
- [1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0],
+const MUSIC_FORM_BARS=36;
+const MUSIC_MOTIF_RHYTHMS=[
+ [1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,0],
  [1,0,1,0,0,1,0,1,1,0,0,1,0,0,1,0],
- [1,0,0,0,1,0,1,0,1,0,0,0,1,0,1,0],
- [1,0,1,0,1,0,0,1,1,0,1,0,0,1,0,0],
- [1,1,0,1,0,1,0,0,1,0,1,1,0,0,1,0],
- [1,0,0,1,0,1,0,0,1,0,0,1,0,1,1,0],
- [1,0,1,1,0,1,0,1,1,0,1,0,1,0,1,0],
- [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]
+ [0,0,1,0,1,0,0,1,0,0,1,0,1,0,1,0],
+ [1,0,0,0,1,0,1,0,0,1,0,0,1,0,1,0],
+ [1,0,1,1,0,0,1,0,1,0,1,0,0,1,0,1],
+ [1,0,0,1,0,0,1,0,0,1,0,1,0,0,1,0],
+ [1,0,0,0,1,0,0,0,1,0,1,0,1,0,0,1],
+ [1,0,0,1,0,1,0,0,1,0,0,0,1,0,1,0]
 ];
-const MUSIC_CONTOURS=[
- [4,2,0,2,4,5,4,2],
- [0,2,4,2,0,1,2,4],
- [4,5,4,2,0,2,4,7],
- [7,4,2,4,5,4,2,0],
- [2,4,5,7,5,4,2,0],
- [0,4,2,5,4,2,0,2],
- [4,7,9,7,5,4,2,4],
- [9,7,5,4,2,4,5,7]
+const MUSIC_MOTIF_SHAPES=[
+ [0,2,4,7,9,7,4,2],
+ [0,4,7,9,7,4,2,0],
+ [0,4,2,4,0,2,4,5],
+ [7,5,4,2,0,2,4,2],
+ [0,2,4,5,4,2,0,2],
+ [4,0,2,0,4,5,4,2],
+ [0,4,5,7,4,2,0,2],
+ [2,0,2,4,0,2,4,7]
 ];
 function musicPick(list,R){return list[Math.floor(R()*list.length)];}
 function musicScaleNote(root,scale,degree){
@@ -98,10 +99,28 @@ function musicScaleNote(root,scale,degree){
 function musicChord(cfg,bar){
  const deg=cfg.prog[bar%cfg.prog.length];
  const root=musicScaleNote(cfg.root,cfg.scale,deg);
- const third=musicScaleNote(cfg.root,cfg.scale,deg+2);
+ let third=musicScaleNote(cfg.root,cfg.scale,deg+2);
+ if(cfg.sus&&(bar%8===2||bar%8===6))third=musicScaleNote(cfg.root,cfg.scale,deg+3);
  const fifth=musicScaleNote(cfg.root,cfg.scale,deg+4);
  const seventh=musicScaleNote(cfg.root,cfg.scale,deg+6);
- return {deg,root,third,fifth,seventh,tones:[root,third,fifth]};
+ const ninth=musicScaleNote(cfg.root,cfg.scale,deg+8);
+ return {deg,root,third,fifth,seventh,ninth,tones:[root,third,fifth]};
+}
+function musicBass(cfg,A,st,ct){
+ const style=cfg.bassStyle||'root';
+ if(style==='offbeat'){
+  if(A.full){
+   if(st%2===0)return null;
+   return {m:st%4===3?ct.fifth:ct.root,dur:.5,vol:.2};
+  }
+  if(st%2===0)return null;
+  return {m:st%8===7?ct.fifth:ct.root,dur:.9,vol:.2};
+ }
+ const D=MUSIC_BASS[cfg.drums]||MUSIC_BASS.rock;
+ if(!D[st])return null;
+ let m=st%8===4?ct.fifth:ct.root;
+ if(A.full&&st===14)m+=12;
+ return {m,dur:.9,vol:.22};
 }
 function musicStageForSeed(seed){
  if(seed>=80)return'EXA';
@@ -154,19 +173,19 @@ const Music={
   this.echoFb.gain.value=this.cfg.feedback;
   if(this.echoHp)this.echoHp.frequency.value=this.cfg.echoHp||820;
  },
- makeRhythm(R){
-  const rhythm=musicPick(MUSIC_RHYTHMS,R).slice();
-  for(let i=0;i<2;i++){const j=2+Math.floor(R()*13);rhythm[j]=rhythm[j]?0:1;}
-  let n=rhythm.reduce((a,b)=>a+b,0);
-  if(n<6)for(let i=0;i<16&&n<6;i++)if(!rhythm[i]){rhythm[i]=1;n++;}
-  if(n>10){for(let i=15;i>0&&n>10;i--)if(rhythm[i]){rhythm[i]=0;n--;}}
-  rhythm[0]=1;
-  return rhythm;
- },
- makeContour(R){
-  const contour=musicPick(MUSIC_CONTOURS,R).slice();
-  for(let i=0;i<2;i++){const j=1+Math.floor(R()*7);contour[j]+=R()<.5?-1:1;}
-  return contour;
+ makeMotif(R,resolve){
+  const rhythm=musicPick(MUSIC_MOTIF_RHYTHMS,R).slice();
+  const shape=musicPick(MUSIC_MOTIF_SHAPES,R).slice();
+  const notes=[];let si=0;
+  for(let st=0;st<16;st++){
+   if(!rhythm[st])continue;
+   let off=shape[si%shape.length];
+   if(st%4===0&&off%2){off=off-1;if(off>6)off=6;}
+   notes.push({st,off});
+   si++;
+  }
+  if(notes.length)notes[notes.length-1].off=resolve?0:5;
+  return {rhythm,shape,notes};
  },
  buildTheme(o){
   const R=o.rng;
@@ -174,31 +193,40 @@ const Music={
    kind:o.kind,id:o.id,stage:o.stage,root:o.root,mode:o.mode,scale:MUSIC_SCALES[o.mode],
    prog:o.prog.slice(),bpm:o.bpm,swing:o.style.swing||0,echo:o.style.echo??.18,feedback:o.style.feedback??.28,
    drums:o.style.drums,leadWave:o.leadWave||musicPick(o.style.leads,R),arpWave:o.style.arp,padWave:o.style.pad,
-   seventh:!!o.style.seventh,leadLow:o.style.leadLow||62,leadHigh:o.style.leadHigh||88,
-   rhythmA:this.makeRhythm(R),rhythmB:this.makeRhythm(R),
-   contourA:this.makeContour(R),contourB:this.makeContour(R),phase:o.phase|0,leadBars:[]
+   seventh:!!o.style.seventh,ninth:!!o.style.ninth,sus:!!o.style.sus,
+   bassStyle:o.style.bassStyle||'root',arpMode:o.style.arpMode||'up',arp16:!!o.style.arp16,
+   leadLow:o.style.leadLow||62,leadHigh:o.style.leadHigh||88,
+   motifA:this.makeMotif(R,false),motifB:this.makeMotif(R,true),phase:o.phase|0,leadBars:[],
+   form:'INTRO/VERSE/CHORUS/BRIDGE/CLIMAX/OUTRO'
   };
-  for(let bar=0;bar<16;bar++){
-   const chord=musicChord(cfg,bar);
-   const rhythm=bar<8?cfg.rhythmA:cfg.rhythmB;
-   const contour=bar<8?cfg.contourA:cfg.contourB;
-   const events=[];let k=0;
-   for(let st=0;st<16;st++){
-    if(!rhythm[st])continue;
-    const off=contour[(k+(bar>>1))%contour.length];
-    let m=musicScaleNote(cfg.root,cfg.scale,chord.deg+off);
-    while(m<cfg.leadLow)m+=12;
-    while(m>cfg.leadHigh)m-=12;
-    let gap=16-st;
-    for(let j=st+1;j<16;j++)if(rhythm[j]){gap=j-st;break;}
-    events.push({st,m,dur:Math.max(1,Math.min(gap,8)),vel:.1+(st===0?.028:0)+(st%4===0?.012:0)+R()*.012});
-    k++;
-   }
-   cfg.leadBars.push(events);
-  }
-  cfg.signature=[cfg.root,cfg.mode,cfg.prog.join(','),cfg.rhythmA.join(''),cfg.contourA.join(','),cfg.rhythmB.join(''),cfg.contourB.join(',')].join('|');
+  for(let bar=0;bar<MUSIC_FORM_BARS;bar++)cfg.leadBars.push(this.leadPhrase(cfg,bar));
+  cfg.signature=[cfg.root,cfg.mode,cfg.prog.join(','),cfg.form,
+   cfg.motifA.rhythm.join(''),cfg.motifA.shape.join(','),
+   cfg.motifB.rhythm.join(''),cfg.motifB.shape.join(',')].join('|');
   this.cfg=cfg;
   this.lastM=cfg.root+12;
+ },
+ leadPhrase(cfg,bar){
+  const chord=musicChord(cfg,bar);
+  let motif;
+  if(bar<8||bar>=34)motif=cfg.motifA;
+  else if(bar<16)motif=cfg.motifA;
+  else if(bar<24)motif=cfg.motifB;
+  else if(bar<28)motif=cfg.motifA;
+  else motif=cfg.motifB;
+  const events=[];
+  for(const n of motif.notes){
+   let off=n.off;
+   if(n===motif.notes[motif.notes.length-1]&&bar%4===3)off=0;
+   let m=musicScaleNote(cfg.root,cfg.scale,chord.deg+off);
+   while(m<cfg.leadLow)m+=12;
+   while(m>cfg.leadHigh)m-=12;
+   let gap=16-n.st;
+   for(let j=n.st+1;j<16;j++)if(motif.rhythm[j]){gap=j-n.st;break;}
+   events.push({st:n.st,m,dur:Math.max(1,Math.min(gap,8)),
+    vel:.1+(n.st===0?.03:0)+(n.st%4===0?.013:0)+(bar>=28?.014:0)+((bar*3+n.st)%5)*.003});
+  }
+  return events;
  },
  buildBoss(def,phase){
   const stage=musicStageForSeed(def.bgmSeed);
@@ -240,15 +268,24 @@ const Music={
   });
  },
  arrangementFor(bar,phase){
-  const kind=this.cfg.kind,sec=bar>>2;
-  if(kind==='title')
-   return {drums:bar>=4,pad:true,arp:bar>=2,bass:bar>=2,lead:bar>=8,counter:false,full:bar>=12,fill:bar%4===3,crash:bar===0,breakdown:false};
-  const breakdown=kind==='stage'&&bar===7&&phase===0;
+  const kind=this.cfg.kind,b=bar%MUSIC_FORM_BARS;
+  if(kind==='title'){
+   const outro=b>=34;
+   return {drums:b>=8&&!outro,pad:true,arp:b>=4&&!outro,bass:b>=8,lead:b>=16&&!outro,
+    counter:b>=24&&!outro,full:b>=24&&!outro,fill:b%4===3&&!outro,
+    crash:b===0||b===16||b===24||b===28||b===34,breakdown:b===7||b===15,outro,
+    oct:b<8?-12:b===24?-12:b>=28&&!outro?12:0,arpOct:b<8?-12:0,climax:b>=28&&!outro};
+  }
+  const breakdown=kind==='stage'&&(b===7||b===23)&&phase===0;
+  const outro=b>=34;
+  const chorus=b>=16&&b<24,bridge=b>=24&&b<28,climax=b>=28&&b<34;
   return {
-   drums:!breakdown,pad:true,arp:!breakdown,bass:!breakdown,
-   lead:!breakdown&&(sec>=1||phase>=1||bar>=8),
-   counter:phase>=2&&sec>=2,full:phase>=2||sec>=2,
-   fill:bar%4===3,crash:bar%4===0,breakdown
+   drums:!breakdown&&!outro&&b>=3,pad:true,arp:!breakdown&&!outro&&b>=4,bass:!breakdown&&b>=4,
+   lead:!breakdown&&!outro&&b>=12,
+   counter:!breakdown&&!outro&&phase>=1&&(chorus||climax),
+   full:(phase>=2&&chorus)||climax,
+   fill:b%4===3&&!outro,crash:b===0||b===16||b===24||b===28||b===34,
+   breakdown,outro,oct:b<8?-12:bridge?-12:climax?12:0,arpOct:b<8?-12:0,climax
   };
  },
  padTones(ct){
@@ -378,7 +415,8 @@ const Music={
  },
  scheduleStep(s,tRaw,spb){
   if(AudioSys.muted)return;
-  const cfg=this.cfg,st=s%16,bar=Math.floor(s/16)%16;
+  const cfg=this.cfg,st=s%16,bar=Math.floor(s/16)%MUSIC_FORM_BARS,loop=Math.floor(s/(16*MUSIC_FORM_BARS));
+  const vary=loop%2===1;
   const R=musicRandom((s*48271+1)>>>0);
   const hum=(R()-.5)*.006;
   const t=tRaw+(st%2?cfg.swing*spb:0)+hum;
@@ -388,31 +426,38 @@ const Music={
   const V=b=>b*(.86+R()*.28);
   if(A.drums)this.scheduleDrums(t,st,bar,A,phase,R);
   if(A.pad&&st===0)this.vPad(t,this.padTones(ct),spb*15.4,cfg.kind==='title'?.05:.04,cfg.padWave);
-  if(A.bass&&(MUSIC_BASS[cfg.drums]||MUSIC_BASS.rock)[st]){
-   let m=st%8===4?ct.fifth:ct.root;
-   while(m>48)m-=12;
-   while(m<31)m+=12;
-   if(A.full&&st===14)m+=12;
-   this.vBass(t,m,spb*.9,V(.22),cfg.drums==='metal'?640:520);
+  if(A.bass){
+   const b=musicBass(cfg,A,st,ct);
+   if(b){let m=b.m;while(m>48)m-=12;while(m<31)m+=12;this.vBass(t,m,spb*b.dur,V(b.vol),cfg.drums==='metal'?640:520);}
   }
-  if(A.arp&&(st%2===0||(A.full&&st%2===1))){
-   const tones=cfg.seventh?ct.tones.concat(ct.seventh):ct.tones;
-   let m=tones[(s>>1)%tones.length]+12;
-   if(A.full&&st%2===1)m+=12;
-   this.vPluck(t,m,spb*.68,V(.042),cfg.arpWave);
+  if(A.arp){
+   const arpOn=cfg.arp16&&A.full?true:(st%2===0||(A.full&&st%2===1)||(vary&&st===7));
+   if(arpOn){
+    const tones=ct.tones.slice();
+    if(cfg.seventh)tones.push(ct.seventh);
+    if(cfg.ninth&&phase>=1)tones.push(ct.ninth);
+    const L=tones.length,k=cfg.arp16&&A.full?s:s>>1;
+    let idx;
+    if(cfg.arpMode==='updown'){const p=2*(L-1)||1,r=k%p;idx=r<L?r:p-r;}
+    else idx=k%L;
+    let m=tones[idx]+12+(A.arpOct||0);
+    if(cfg.arp16&&A.full&&st%2===1)m+=12;
+    this.vPluck(t,m,spb*.68,V(vary&&st===7?.032:.042),cfg.arpWave);
+   }
   }
   if(A.lead){
    const ev=(cfg.leadBars[bar]||[]).find(e=>e.st===st);
    if(ev){
+    const m=ev.m+(A.oct||0);
     const dur=Math.max(.06,Math.min(spb*7,spb*ev.dur*.92));
-    this.vLead(t,ev.m,dur,V(ev.vel)*(cfg.kind==='stage'?.78:1),cfg.leadWave);
-    if(phase>=2&&st%4===0)this.vPluck(t,ev.m+12,spb*.5,.026,'triangle');
+    this.vLead(t,m,dur,V(ev.vel)*(cfg.kind==='stage'?.78:1),cfg.leadWave);
+    if(phase>=2&&st%4===0)this.vPluck(t,m+12,spb*.5,.026,'triangle');
    }
   }
-  if(A.counter&&st===0){
-   let m=ct.fifth-12;
-   while(m<45)m+=12;
-   this.vLead(t,m,spb*6,V(.048),'triangle');
+  if(A.counter&&(st===0||st===8)){
+   let m=(st===0?ct.third:ct.fifth)-12;
+   while(m<45)m+=12;while(m>62)m-=12;
+   this.vLead(t,m,spb*7,V(.05),'triangle');
   }
  },
  tick(){
@@ -467,4 +512,5 @@ function startTitleBgm(){
 function stopBgm(){
  Music.on=false;
  Music._track=null;
+ if(Music.timer){clearInterval(Music.timer);Music.timer=null;}
 }

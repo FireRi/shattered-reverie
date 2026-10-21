@@ -1,8 +1,19 @@
 export const config = { runtime: 'edge' };
 
 const _rate = new Map();
+let _ratePrune = 0;
+const NO_STORE = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: NO_STORE });
+}
 function limited(ip) {
   const now = Date.now();
+  if (now - _ratePrune > 120000) {
+    _ratePrune = now;
+    for (const [k, e] of _rate) {
+      if (now - e.t > 120000) _rate.delete(k);
+    }
+  }
   const e = _rate.get(ip) || { n: 0, t: now };
   if (now - e.t > 60000) { e.n = 0; e.t = now; }
   e.n++; _rate.set(ip, e);
@@ -38,16 +49,16 @@ function normalizeLines(value) {
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'POST only' }), { status: 405 });
+    return json({ error: 'POST only' }, 405);
   }
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
   if (limited(ip)) {
-    return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429 });
+    return json({ error: 'rate_limited' }, 429);
   }
 
   const key = process.env.GROQ_API_KEY;
   if (!key) {
-    return new Response(JSON.stringify({ error: 'no_key' }), { status: 200 });
+    return json({ error: 'no_key' }, 200);
   }
 
   try {
@@ -104,24 +115,31 @@ Return ONLY JSON in this shape:
 {"lines":[{"who":"b","text":"..."},{"who":"p","text":"..."},{"who":"b","text":"..."},{"who":"p","text":"..."}]}`;
 
     async function callGroq(model, jsonMode) {
-      return fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: 'Write the four-line exchange now.' }
-          ],
-          max_tokens: 520,
-          temperature: 1.08,
-          top_p: 0.95,
-          response_format: jsonMode ? { type: 'json_object' } : undefined,
-        }),
-      });
+      const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => ctrl.abort(), 5000) : null;
+      try {
+        return await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: 'Write the four-line exchange now.' }
+            ],
+            max_tokens: 520,
+            temperature: 1.08,
+            top_p: 0.95,
+            response_format: jsonMode ? { type: 'json_object' } : undefined,
+          }),
+          signal: ctrl ? ctrl.signal : undefined,
+        });
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     }
 
     const preferred = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
@@ -129,8 +147,13 @@ Return ONLY JSON in this shape:
     let result = null;
 
     for (const model of models) {
-      let groqRes = await callGroq(model, true);
-      if (!groqRes.ok) groqRes = await callGroq(model, false);
+      let groqRes;
+      try {
+        groqRes = await callGroq(model, true);
+        if (!groqRes.ok) groqRes = await callGroq(model, false);
+      } catch (e) {
+        continue;
+      }
       if (!groqRes.ok) continue;
       const data = await groqRes.json();
       const raw = data.choices?.[0]?.message?.content?.trim();
@@ -144,11 +167,11 @@ Return ONLY JSON in this shape:
     }
 
     if (!result) {
-      return new Response(JSON.stringify({ error: 'generation' }), { status: 200 });
+      return json({ error: 'generation' }, 200);
     }
-    return new Response(JSON.stringify(result), { status: 200 });
+    return json(result, 200);
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'server' }), { status: 200 });
+    return json({ error: 'server' }, 200);
   }
 }
 

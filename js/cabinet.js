@@ -36,7 +36,7 @@ var el={
  fps:document.getElementById('cabFps')
 };
 var SCREENS={play:1,pause:1,gameover:1,result:1,demo:1};
-var DIFF_SHORT=['EASY','ORIGINAL','ALL-STAR','1CC','STORY'];
+var DIFF_SHORT=['EASY','ORIGINAL','ALL-STAR','1CC','STORY','STORY 1CC'];
 var cached={};
 var liveState=false;
 
@@ -95,7 +95,7 @@ function sync(){
 
  var hasRoute=G.routeQueue&&G.routeQueue.length&&G.routeIdx>=0&&G.routeQueue[G.routeIdx]!==undefined;
  var R=hasRoute?ROUTES[G.routeQueue[G.routeIdx]]:null;
- var diffName=G.oneCC?'1CC':G.story?'STORY':DIFF_SHORT[DIFF]||DIFFS[DIFF]||'ORIGINAL';
+ var diffName=G.story&&G.oneCC?'STORY 1CC':G.oneCC?'1CC':G.story?'STORY':DIFF_SHORT[DIFF]||DIFFS[DIFF]||'ORIGINAL';
  var routeMode=R&&R.mode?String(R.mode).toUpperCase():'STANDARD';
  var modeLabel=G.oneCC?'NO CONTINUE':G.story?'WAVE RUN':'ROUTE';
  var score=Math.floor(G.dispScore);
@@ -109,7 +109,7 @@ function sync(){
  text('modeTag',modeLabel);
  text('hi',fmtScore(hi));
  text('score',fmtScore(score));
- text('credits','CR '+G_coins);
+ text('credits','CR '+G.coins);
  text('spellVal',PL.spells+'/4');
  text('powerVal',(PL.power/100).toFixed(2));
  text('flashVal',PL.flash>=PL.flashMax?'READY':PL.flash+'/'+PL.flashMax);
@@ -131,8 +131,9 @@ function sync(){
  if(AudioSys.muted)flags.push('MUTED');
  if(typeof GamepadSupport!=='undefined'&&GamepadSupport.connected&&GamepadSupport.enabled)flags.push('PAD');
  if(settings&&settings.aiDialogue===false)flags.push('AI OFF');
+ if(perfLevel<2)flags.push(perfLevel?'FX HALF':'FX LOW');
  text('flags',flags.join(' // '));
- text('fps',showFps&&fpsVal>0?fpsVal+' FPS':'');
+ text('fps',showFps&&fpsVal>0?fpsVal+' FPS'+(perfLevel<2?' // FX '+(perfLevel?'HALF':'LOW'):''):'');
 
  var wave=G.wave;
  if(el.waveRow&&el.waveRow.classList)el.waveRow.classList.toggle('is-hidden',!wave);

@@ -46,6 +46,14 @@ function down(pad,i){
  const b=pad.buttons&&pad.buttons[i];
  return !!b&&(b.pressed===true||(typeof b.value==='number'&&b.value>.5));
 }
+function axisCandidate(axes,ix,iy){
+ const ax=Number(axes[ix]),ay=Number(axes[iy]);
+ if(!Number.isFinite(ax)||!Number.isFinite(ay))return null;
+ if(ax<=-.97&&ay<=-.97)return null;
+ const mag=Math.hypot(ax,ay);
+ if(mag<.3)return null;
+ return {x:Math.abs(ax)>=.22?(ax<0?-1:1):0,y:Math.abs(ay)>=.22?(ay<0?-1:1):0,mag};
+}
 function readDir(pad,pressed){
  let x=0,y=0;
  if(pressed[12])y-=1;
@@ -54,13 +62,12 @@ function readDir(pad,pressed){
  if(pressed[15])x+=1;
  if(!x&&!y){
   const axes=pad.axes||[];
-  if(axes.length>=2){
-   const ax=Number(axes[0])||0,ay=Number(axes[1])||0;
-   if(Math.hypot(ax,ay)>=.3){
-    if(Math.abs(ax)>=.22)x=ax<0?-1:1;
-    if(Math.abs(ay)>=.22)y=ay<0?-1:1;
-   }
+  let best=null,bestMag=0;
+  for(let i=0;i+1<axes.length&&i<6;i+=2){
+   const cand=axisCandidate(axes,i,i+1);
+   if(cand&&cand.mag>bestMag){best=cand;bestMag=cand.mag;}
   }
+  if(best){x=best.x;y=best.y;}
  }
  return {x,y};
 }

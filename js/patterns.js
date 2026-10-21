@@ -703,7 +703,7 @@ function*ooyN1(b){
  let k=0;
  while(k<330){
   if(k%62===0){
-   const vert=Math.random()<.5;
+   const vert=rnd()<.5;
    for(let i=0;i<3;i++){
     spawnLaser({x:vert?rnd(40,W-40):rnd(60,W-60),y:vert?-10:rnd(40,H*.6),
      ang:vert?90:(k%124<62?12:168),len:H+40,warm:44,dur:26,wid:12,col:'#ff9050'});

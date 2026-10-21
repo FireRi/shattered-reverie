@@ -165,7 +165,7 @@ function*brkS(b){
  let t=0;
  while(t<3200){
   if(t%64===0){
-   const y=rnd(60,H*.7),va=Math.random()<.5;
+   const y=rnd(60,H*.7),va=rnd()<.5;
    spawnLaser({x:va?-10:y,y:va?y:-10,ang:va?0:90,len:va?W+40:H+40,warm:40,dur:18,wid:12,col:'#aef'});
    spawnLaser({x:W+10,y:H-y+40,ang:180,len:W+40,warm:56,dur:18,wid:12,col:'#aef'});
   }
@@ -459,15 +459,15 @@ function*shrS1(b){
  while(t<3000){
   screenFlash(.05,'#000');
    if(t%14===0){
-    const dark=Math.random()<.55;
+    const dark=rnd()<.55;
     b.S({x:rnd(0,W),y:-12,v:DV(4.2),ang:90+rnd(-10,10),g:dark?'ball:black':'ball:white',r:5});
    }
    if(t%170===85){
     const gap=rnd(60,W-60);
     for(let x=8;x<W;x+=26){
      if(Math.abs(x-gap)<84)continue;
-     b.S({x,y:-12,v:DV(3.5),ang:90,g:Math.random()<.5?'ball:black':'ball:white',r:4});
-     b.S({x,y:H+12,v:DV(3.2),ang:-90,g:Math.random()<.5?'ball:black':'ball:white',r:4});
+     b.S({x,y:-12,v:DV(3.5),ang:90,g:rnd()<.5?'ball:black':'ball:white',r:4});
+     b.S({x,y:H+12,v:DV(3.2),ang:-90,g:rnd()<.5?'ball:black':'ball:white',r:4});
     }
     addText(gap,H/2,'◇','#fff',16,42);
    }

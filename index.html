@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="description" content="Shattered Reverie ~ Ballad of the Borderless Sky: an original browser-based vertical danmaku game and Len'en tribute.">
+<meta name="theme-color" content="#05050a">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.groq.com; img-src 'self' data:;">
 <title>Shattered Reverie ~ Ballad of the Borderless Sky</title>
 <style>
@@ -136,8 +138,8 @@ body.cab-eligible.cab-live #cabinet{display:block}
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="cv" width="640" height="480"></canvas></div>
-<div id="hint"><span class="pc">Arrows move | Shift focus | Z shoot/confirm | C spell | X flash | Esc/R pause | S settings | H help | A autofire | M mute</span><span class="mob">Use the on-screen controls</span></div>
+<div id="wrap"><canvas id="cv" width="640" height="480" role="application" aria-label="Shattered Reverie danmaku playfield"></canvas></div>
+<div id="hint"><span class="pc">Arrows move | Shift focus | Z shoot/confirm | C spell | X flash | Esc/R pause | S settings | H help | A autofire | M mute | V replay</span><span class="mob">Use the on-screen controls</span></div>
 <div id="cabinet" aria-hidden="true">
  <aside id="cabL" class="cabPanel">
   <div id="cabArt"></div>
@@ -187,6 +189,7 @@ body.cab-eligible.cab-live #cabinet{display:block}
 <div id="rotate"><div class="ico">&#8635;</div><div class="big">ROTATE YOUR DEVICE</div><small>Landscape gives the biggest play area</small><button id="rotateFull">FULLSCREEN</button><button id="rotateSkip">PLAY IN PORTRAIT</button></div>
 <script src="js/engine.js"></script>
 <script src="js/gamepad.js"></script>
+<script src="js/replay.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/music.js"></script>
 <script src="js/player.js"></script>

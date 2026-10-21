@@ -3,12 +3,35 @@
 const VOL_STEPS=[.2,.35,.5,.7,1];
 const SFX_STEPS=[.2,.35,.5,.7,1];
 let musicVolIdx=2,sfxVolIdx=2;
-const AudioSys={ctx:null,master:null,sfxGain:null,muted:false,bgmTimer:null,nextT:0,step:0,seed:1,vol:.17,
+const AudioSys={ctx:null,master:null,sfxGain:null,limiter:null,muted:false,bgmTimer:null,nextT:0,step:0,seed:1,vol:.17,
  buffers:{},
- unlock(){if(this.ctx){if(this.ctx.state==='suspended')this.ctx.resume().catch(()=>{});return;}try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();
-  this.master=this.ctx.createGain();this.master.gain.value=this.vol;this.master.connect(this.ctx.destination);
-  this.sfxGain=this.ctx.createGain();this.sfxGain.gain.value=.9*SFX_STEPS[sfxVolIdx];this.sfxGain.connect(this.master);
-  preloadSfx();}catch(e){}},
+ unlock(){
+  try{
+   if(this.ctx){
+    if(this.ctx.state==='suspended'&&typeof this.ctx.resume==='function'){
+     const p=this.ctx.resume();
+     if(p&&typeof p.catch==='function')p.catch(()=>{});
+    }
+    return;
+   }
+   const Ctor=window.AudioContext||window.webkitAudioContext;
+   if(!Ctor)return;
+   const c=new Ctor();
+   this.ctx=c;
+   this.master=c.createGain();this.master.gain.value=this.vol;
+   if(typeof c.createDynamicsCompressor==='function'){
+    const lim=this.limiter=c.createDynamicsCompressor();
+    if(lim.threshold)lim.threshold.value=-8;
+    if(lim.knee)lim.knee.value=12;
+    if(lim.ratio)lim.ratio.value=4;
+    if(lim.attack)lim.attack.value=.003;
+    if(lim.release)lim.release.value=.25;
+    this.master.connect(lim);lim.connect(c.destination);
+   }else this.master.connect(c.destination);
+   this.sfxGain=c.createGain();this.sfxGain.gain.value=.9*SFX_STEPS[sfxVolIdx];this.sfxGain.connect(this.master);
+   try{preloadSfx();}catch(e){}
+  }catch(e){this.ctx=null;this.master=null;this.sfxGain=null;this.limiter=null;}
+ },
  playSample(name){
   const key=SFX_FILES[name];if(!key)return false;
   const buf=this.buffers[key];if(!buf)return false;
@@ -31,7 +54,7 @@ const AudioSys={ctx:null,master:null,sfxGain:null,muted:false,bgmTimer:null,next
 function sfx(name,o={}){
  if(AudioSys.playSample(name))return;
  switch(name){
-  case 'graze':if(grazeTick%3===0)AudioSys.tone(1800+rnd(600),.03,'sine',.12,-400);break;
+   case 'graze':if(grazeTick%3===0)AudioSys.tone(1800+vrnd(600),.03,'sine',.12,-400);break;
   case 'pshot':break;
   case 'eshot':if(hitTick%4===0)AudioSys.noise(.03,.06,0,3000);break;
   case 'bossHit':if(hitTick%6===0)AudioSys.tone(220,.03,'square',.05,-40);break;
