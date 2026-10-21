@@ -9,8 +9,8 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last feature commit:** `7cfd061 Organize game scripts under js` (pushed).
-- **Current uncommitted work:** desktop cabinet HUD in `index.html`, `js/boot.js`, `js/main.js`, and new `js/cabinet.js`; `js/engine.js` fix for a negative-radius crash that prevented image assets from loading; removed `gfx/ttdm/ui/menubg.png` and its menu background draw/load; removed `gfx/ttdm/ui/maintitle.png` and its title logo draw/load; Senri Bakuchi dice-pattern rework in `js/pex.js` with a new `dice` FX renderer in `js/render.js`; full 44-boss danmaku identity pass across `js/patterns.js`, `js/p4.js`, `js/p5.js`, `js/p6.js`, `js/pex.js`, and `js/pexa.js`; Tsuru Kaihou unfinished-works rework in `js/pex.js` and `js/dialogue.js`; README/AGENTS updates. All-boss, syntax, smoke, xeno, pad, client-AI, API, and screenshot checks pass. Line-ending noise and stale untracked `DOCUMENTATION.md` remain.
+- **Last feature commit:** `25d59e0 Overhaul boss danmaku and add desktop cabinet HUD` (pushed).
+- **Current uncommitted work:** no intentional content changes; only line-ending noise in legacy files and the stale untracked `DOCUMENTATION.md`.
 
 ## Run And Verify
 
@@ -130,7 +130,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - The UI/status and boss-dialogue overhaul was committed and pushed as `a5f5d78`; the `js/` organization followed as `7cfd061`.
 - Before any future commit, inspect `git status` and `git diff`; stage only intended files.
 - Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`. `js/p4.js`, `js/p5.js`, `js/p6.js`, and `js/pexa.js` now contain intentional danmaku edits, not line-ending-only changes.
-- The dialogue/UI changes were committed as `a5f5d78`; the folder move was committed as `7cfd061`.
+- The dialogue/UI changes were committed as `a5f5d78`; the folder move was committed as `7cfd061`; the cabinet and danmaku overhaul was committed as `25d59e0`.
 - `DOCUMENTATION.md` is a stale untracked duplicate; leave it unstaged unless the user asks to update/remove it.
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
@@ -172,7 +172,7 @@ Current verification state:
 - Rehaul contact sheets were reviewed for all 44 non-spells and last spells; no impossible cages or generator failures remain. Para's lane fix and the densified Shitodo/Jinbei/Kurohebi changes still need a real playtest for feel.
 - Tenkai screenshots were reviewed at the draft, inked, frame-seal, crane-head, unfinished, and takeoff stages; the frame is fully on screen, its opening is labeled, the missing side is drawn in before sealing, and the crane reads as a crane. The frame/crane still need a real playtest for feel.
 - Real-device touch/fullscreen behavior and a live Groq key still need manual validation.
-- The cabinet, dice, Tenkai, and danmaku work are uncommitted and await explicit permission.
+- The cabinet, dice, Tenkai, and danmaku work are committed and pushed as `25d59e0`.
 
 Next steps:
 
