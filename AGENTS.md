@@ -9,8 +9,8 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last feature commit:** `25d59e0 Overhaul boss danmaku and add desktop cabinet HUD` (pushed); context refresh `cbd2a5b` (pushed).
-- **Current uncommitted work:** controller support in `js/gamepad.js` (new), `js/engine.js`, `js/main.js`, `index.html`, `js/cabinet.js`, `README.md`, and this file. Do not commit/push until the user explicitly asks.
+- **Last feature commit:** `b838466 Add desktop and mobile controller support` (pushed); prior cabinet/danmaku work `25d59e0`, context refresh `cbd2a5b`.
+- **Current uncommitted work:** no intentional content changes; only legacy line-ending noise and the stale untracked `DOCUMENTATION.md`.
 - **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
 ## Run And Verify
@@ -142,7 +142,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - **Do not commit or push unless the user explicitly asks.**
 - Before any future commit, inspect `git status` and `git diff`; stage only intended files.
 - Do not stage line-ending-only changes: `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, `fonts/VT323-OFL.txt`. `js/p4.js`, `js/p5.js`, `js/p6.js`, and `js/pexa.js` now contain intentional danmaku edits, not line-ending-only changes.
-- Historical commits: UI/dialogue overhaul `a5f5d78`, `js/` organization `7cfd061`, cabinet/dice/danmaku `25d59e0`, and context refresh `cbd2a5b`.
+- Historical commits: UI/dialogue overhaul `a5f5d78`, `js/` organization `7cfd061`, cabinet/dice/danmaku `25d59e0`, context refresh `cbd2a5b`, and controller support `b838466`.
 - `DOCUMENTATION.md` is a stale untracked duplicate; leave it unstaged unless the user asks to update/remove it.
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
@@ -154,7 +154,7 @@ Completed (current controller work):
 - Moved controller input into separate `padKeys`/`padEdge` layers; `down()`/`hitK()` merge them with keyboard input, and `autoPause` releases both controller and touch state.
 - Added the Settings → Controller screen (`G.screen='controller'`) with enable/disable, six bind actions, reset, back, pad status, button/axis counts, listening state, and desktop/touch layouts. Touch can tap rows to bind and tap anywhere to cancel a listen; the touch binding overlay covers the screen.
 - Expanded controller contexts: title Start/Y opens Settings, View opens Help, menus use A/B/Start, play maps shot/flash/spell/focus/pause, demo exits on controller input.
-- Updated the title prompt/footer, help control matrix, cabinet `PAD` flag, README architecture/input/testing docs, and this file. No commit/push for controller work yet.
+- Updated the title prompt/footer, help control matrix, cabinet `PAD` flag, README architecture/input/testing docs, and this file. Committed and pushed as `b838466`.
 - Verified with a mocked standard pad on desktop and touch: `controller-check.js` passes 16/16 in both modes; desktop smoke `20/20`, touch smoke `32/32`, and `ALL-BOSS PASSED` (44/102) still pass.
 - Screenshot review: controller settings row, desktop Controller screen, touch two-column screen, listening overlay, and portrait layout are legible after moving the status header clear of the panel title. The desktop title prompt uses `Z / PAD A TO DEPLOY`, and touch START changes to `START / PAD A` at 14px so it fits the button.
 
@@ -188,19 +188,19 @@ Current verification state:
 - `controller-check.js` passes 16/16 on desktop and touch with a mocked standard pad; `all-boss-check.js` is `ALL-BOSS PASSED` with 44 bosses and 102 attacks.
 - Desktop smoke passes `20/20`; touch smoke passes `32/32`; cabinet does not activate in fake-DOM or touch runs.
 - Controller screenshots reviewed at 1280x960, landscape touch 844x390, and portrait 390x844. The title prompt, settings row, status header, two-column touch grid, listening overlay, and footer fit without clipping.
-- Real controller hardware on desktop/mobile and browser/OS recognition of non-standard pads still need manual validation.
+- User confirmed controller input works in real testing; non-standard pads and other browser/OS combinations remain optional coverage checks.
 - `xeno-check.js` passes after the final dice, label-spacing, and cutin changes; targeted 1280x960 screenshots show readable dice faces, roll names, Double or Nothing, and the All-In hand.
 - `padcheck.js`, both mocked API checks, and `client-ai-check.js` pass after the final asset-loader, cabinet, and danmaku changes.
 - Final cabinet screenshots reviewed at 1920x1080 and 1366x768: play, boss, pause, gameover, and result have no clipping or duplicate HUD; backdrop art is loading.
 - Final 1280x960, landscape touch, and portrait touch screenshots reviewed after the asset fix; compact HUD and DOM pad layouts remain intact.
 - Rehaul contact sheets were reviewed for all 44 non-spells and last spells; no impossible cages or generator failures remain. Para's lane fix and the densified Shitodo/Jinbei/Kurohebi changes still need a real playtest for feel.
 - Tenkai screenshots were reviewed at the draft, inked, frame-seal, crane-head, unfinished, and takeoff stages; the frame is fully on screen, its opening is labeled, the missing side is drawn in before sealing, and the crane reads as a crane. The frame/crane still need a real playtest for feel.
-- Real-device touch/fullscreen behavior, controller recognition, and a live Groq key still need manual validation.
-- The cabinet, dice, Tenkai, and danmaku work are committed and pushed as `25d59e0`; the controller work is uncommitted.
+- Real-device touch/fullscreen behavior and a live Groq key still need manual validation.
+- The cabinet, dice, Tenkai, and danmaku work are committed and pushed as `25d59e0`; the controller work is committed and pushed as `b838466`.
 
 Next steps:
 
-1. Validate with real controller hardware on desktop and mobile, including hotplug and a non-standard pad; confirm browser/OS recognition and remap usability.
+1. Validate non-standard controller hardware and other browser/OS combinations if available; the primary controller path has been user-confirmed.
 2. Get real-device validation for touch spacing, safe areas, and fullscreen behavior if possible.
 3. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
 4. Playtest the revised bosses, especially Tenkai's frame escape/crane takeoff, the new wall lanes, and late-route exclusions; tune density only if it blocks readability.
