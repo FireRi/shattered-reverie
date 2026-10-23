@@ -9,8 +9,8 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last feature commit:** `5efd057 Add replay system and performance/audio polish` (pushed); prior controller work `b838466`, cabinet/danmaku work `25d59e0`.
-- **Current feature work:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay; touches `js/engine.js`, `js/player.js`, `js/main.js`, `js/boss.js`, `js/render.js`, `js/replay.js`, `js/gamepad.js`, `js/cabinet.js`, and the `patterns.js`/`p4-6`/`pex*` target aiming helpers.
+- **Last feature commit:** `a721736 Add local two-player co-op` (pushed); prior replay/performance work `5efd057`, controller work `b838466`, cabinet/danmaku work `25d59e0`.
+- **Latest feature:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay; touches `js/engine.js`, `js/player.js`, `js/main.js`, `js/boss.js`, `js/render.js`, `js/replay.js`, `js/gamepad.js`, `js/cabinet.js`, and the `patterns.js`/`p4-6`/`pex*` target aiming helpers.
 - **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
 ## Run And Verify
@@ -161,7 +161,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 
 ## Current Work State (2026-10-23)
 
-Completed (local co-op Phase 2):
+Completed (local co-op Phase 2, committed `a721736`):
 
 - `js/player.js` builds `PL` and `P2` from `newPlayerState(slot)`, exports `players`, and parameterizes lifecycle/combat/graze functions per player. `PL` remains the P1 alias; `P2` joins `players` only while co-op runs.
 - P2 keyboard input uses `p2keys`/`p2edge` with canonical codes: WASD move, J shot, K flash, L spell, I focus. P2 bindings are consumed before P1 `keys` only while `players.length>1`, so solo hotkeys (`A` autofire, `S` settings) are unchanged; in co-op `A`/`S` become P2 movement.
