@@ -33,11 +33,11 @@ const vpick=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
 const dist=(x,y,X,Y)=>Math.hypot(X-x,Y-y);
-const angTo=(x,y)=>Math.atan2(PL.y-y,PL.x-x);
+const angTo=(x,y)=>{const p=targetPlayer();return Math.atan2(p.y-y,p.x-x);};
 
 
 const KEY={LEFT:37,RIGHT:39,UP:38,DOWN:40,SHIFT:16,Z:90,X:88,C:67,ESC:27,M:77,ENTER:13,R:82,
- S:83,H:72,V:86,A:65,F:70,MINUS:189,PLUS:187,COMMA:188,PERIOD:190,
+ S:83,H:72,V:86,A:65,F:70,TWO:50,MINUS:189,PLUS:187,COMMA:188,PERIOD:190,
  NUMPAD_MINUS:109,NUMPAD_PLUS:107,FF_MINUS:173,EQUALS:61};
 const PLAYER_HIT_R=2.6;
 const GRAZE_R=14;
@@ -79,7 +79,18 @@ const TouchUI={
  }
 };
 const keys={},edge={},padKeys={},padEdge={};
+const p2keys={},p2edge={},pad2Keys={},pad2Edge={};
+const P2BIND={87:KEY.UP,83:KEY.DOWN,65:KEY.LEFT,68:KEY.RIGHT,74:KEY.Z,75:KEY.X,76:KEY.C,73:KEY.SHIFT};
 addEventListener('keydown',e=>{
+ const p2k=P2BIND[e.keyCode];
+ const p2Active=p2k!==undefined&&typeof players!=='undefined'&&players.length>1;
+ if(p2Active){
+  if(!p2keys[p2k])p2edge[p2k]=true;p2keys[p2k]=true;
+  e.preventDefault();
+  if(typeof G!=='undefined'&&G)G.idleT=0;
+  try{AudioSys.unlock();}catch(err){}
+  return;
+ }
  if(!keys[e.keyCode])edge[e.keyCode]=true;
  keys[e.keyCode]=true;
  if([37,38,39,40,16,90,88,67].includes(e.keyCode))e.preventDefault();
@@ -87,9 +98,16 @@ addEventListener('keydown',e=>{
  if(e.keyCode===KEY.M&&typeof toggleMute==='function')toggleMute();
  try{AudioSys.unlock();}catch(err){}
 });
-addEventListener('keyup',e=>{keys[e.keyCode]=false;});
+addEventListener('keyup',e=>{
+ keys[e.keyCode]=false;
+ const p2k=P2BIND[e.keyCode];
+ if(p2k!==undefined)p2keys[p2k]=false;
+});
 const down=k=>!!keys[k]||!!padKeys[k],hitK=k=>{if(edge[k]||padEdge[k]){edge[k]=false;padEdge[k]=false;return true}return false};
-function clearEdges(){for(const k in edge)edge[k]=false;for(const k in padEdge)padEdge[k]=false;}
+const downP=(p,k)=>p===P2?(!!p2keys[k]||!!pad2Keys[k]):down(k);
+const hitP=(p,k)=>{if(p!==P2)return hitK(k);if(p2edge[k]||pad2Edge[k]){p2edge[k]=false;pad2Edge[k]=false;return true}return false};
+function clearEdges(){for(const k in edge)edge[k]=false;for(const k in padEdge)padEdge[k]=false;for(const k in p2edge)p2edge[k]=false;for(const k in pad2Edge)pad2Edge[k]=false;}
+function clearP2Input(){for(const k in p2keys)p2keys[k]=false;for(const k in p2edge)p2edge[k]=false;for(const k in pad2Keys)pad2Keys[k]=false;for(const k in pad2Edge)pad2Edge[k]=false;}
 
 const DIFFS=['Easy','Original','Absurdly All-Star','1CC','Story','Story 1CC'];
 let DIFF=1;
@@ -253,9 +271,12 @@ function eUpdate(){
   if(b.fn&&b.fn(b)===false){killE(i);continue;}
   let mx=b.vx,my=b.vy;
   if(tranceActive){
-   const dxp=b.x-PL.x,dyp=b.y-PL.y;
-   const d2=dxp*dxp+dyp*dyp;
-   if(d2<tranceR2){const k=.55+.45*(Math.sqrt(d2)/100);mx*=k;my*=k;}
+   for(const p of players){
+    if(p.dead)continue;
+    const dxp=b.x-p.x,dyp=b.y-p.y;
+    const d2=dxp*dxp+dyp*dyp;
+    if(d2<tranceR2){const k=.55+.45*(Math.sqrt(d2)/100);mx*=k;my*=k;break;}
+   }
   }
   b.x+=mx;b.y+=my;
   if(b.x<-48||b.x>W+48||b.y<-48||b.y>H+48){if(!b.keep||b.t>240){killE(i);continue;}}
@@ -310,36 +331,47 @@ function spawnItem(t,x,y,vx=0){
  items.push({t,x,y,vx,vy:rnd(-3,-1),fall:false,t2:0});
 }
 function itemSpray(x,y,n=8,kind='B'){for(let i=0;i<n;i++)spawnItem(kind,x,y,Math.cos(TAU*i/n)*2.2);}
+function nearestItemPlayer(it){
+ let best=PL,bestD=Infinity;
+ for(const p of players){
+  if(p.dead)continue;
+  const d=dist(it.x,it.y,p.x,p.y);
+  if(d<bestD){bestD=d;best=p;}
+ }
+ return best;
+}
 function itemUpdate(){
+ const above=players.some(p=>!p.dead&&p.y<150);
  for(let i=items.length-1;i>=0;i--){const it=items[i];it.t2++;
-  if(PL.y<150&&!it.fall)it.fall=true;
-  if(!it.fall&&dist(it.x,it.y,PL.x,PL.y)<75)it.fall=true;
-  if(it.fall){it.x=lerp(it.x,PL.x,.09);it.y=lerp(it.y,PL.y,.14);
+  const target=nearestItemPlayer(it);
+  if(above&&!it.fall)it.fall=true;
+  if(!it.fall&&dist(it.x,it.y,target.x,target.y)<75)it.fall=true;
+  if(it.fall){it.x=lerp(it.x,target.x,.09);it.y=lerp(it.y,target.y,.14);
    if(it.t2%4===0&&fx.length<300)fx.push({t:'trail',x:it.x+vrnd(-3,3),y:it.y+vrnd(-2,4),c:IT[it.t],life:10,max:10});}
   else{it.vy=Math.min(it.vy+.12,2.6);it.vx*=.98;it.x+=it.vx;it.y+=it.vy;
    if(it.y>=H-14){it.y=H-14;it.vy=0;it.ground=true;}}
   if(it.ground){
    it.life=(it.life===undefined?560:it.life)-1;
-   if(it.life<=0){collect(it);fxSpark(it.x,it.y,'#cfc',8);killItem(i);continue;}
+   if(it.life<=0){collect(it,target);fxSpark(it.x,it.y,'#cfc',8);killItem(i);continue;}
   }
-   if(dist(it.x,it.y,PL.x,PL.y)<16||(PL.y<150)){
-    collect(it);killItem(i);}
+   if(dist(it.x,it.y,target.x,target.y)<16||above){
+    collect(it,target);killItem(i);}
   }
 }
-function collect(it){
- const px=PL.x+vrnd(-8,8),py=PL.y-24;
- if(it.t==='P'){addPower(8);sfx('item');addText(px,py,'PWR','#ff8080',11,30);}
- else if(it.t==='B'){const v=Math.floor(8000*(1+PL.graze/400));G.score+=v;sfx('item');addText(px,py,'+'+v,'#6090ff',12,36);}
- else if(it.t==='L'){PL.lives=Math.min(8,PL.lives+1);G.livesPulse=36;addText(PL.x,PL.y-30,'Extend!','#ff60ff');sfx('extend');
-  fxRing(PL.x,PL.y,'#ffd700',8,60,4,24);}
- else if(it.t==='S'){PL.spells=Math.min(4,PL.spells+1);addText(PL.x,PL.y-30,'Spell +1','#ffff60');sfx('spellget');}
+function collect(it,p=PL){
+ const px=p.x+vrnd(-8,8),py=p.y-24;
+ if(it.t==='P'){addPower(8,p);sfx('item');addText(px,py,'PWR','#ff8080',11,30);}
+ else if(it.t==='B'){const v=Math.floor(8000*(1+p.graze/400));G.score+=v;sfx('item');addText(px,py,'+'+v,'#6090ff',12,36);}
+ else if(it.t==='L'){p.lives=Math.min(8,p.lives+1);G.livesPulse=36;addText(p.x,p.y-30,'Extend!','#ff60ff');sfx('extend');
+  fxRing(p.x,p.y,'#ffd700',8,60,4,24);}
+ else if(it.t==='S'){p.spells=Math.min(4,p.spells+1);addText(p.x,p.y-30,'Spell +1','#ffff60');sfx('spellget');}
  else if(it.t==='K'){G.sparksGot++;G.score+=10000;sfx('spellget');
-  addText(PL.x,PL.y-30,'+10k','#ffd700',14,40);fxBurst(PL.x,PL.y,'#ffd700',8,3);}
- else if(it.t==='O'){G.od=Math.min(G.odMax,G.od+12);PL.flash=Math.min(PL.flashMax,PL.flash+2);
+  addText(p.x,p.y-30,'+10k','#ffd700',14,40);fxBurst(p.x,p.y,'#ffd700',8,3);}
+ else if(it.t==='O'){G.od=Math.min(G.odMax,G.od+12);p.flash=Math.min(p.flashMax,p.flash+2);
   G.score+=1500;sfx('item');addText(px,py,'OD+','#40e0d0',12,30);}
 }
 
-function addPower(v){PL.power=clamp(PL.power+v,100,500);}
+function addPower(v,p=PL){p.power=clamp(p.power+v,100,500);}
 
 /* ================= LASERS (enemy) ================= */
 function laserUpdate(){

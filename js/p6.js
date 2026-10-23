@@ -71,7 +71,7 @@ function*yaoN1(b){
    b.fan(b.x(),b.y(),DN(8),DV(4),60,null,'kunai:green');
   }
   if(k%88===44){
-   const gap=clamp(PL.x+rnd(-54,54),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-54,54),34,W-34);
    addText(gap,26,'∨','#aef',18,40);
    for(let x=10;x<W;x+=22){
     if(Math.abs(x-gap)<36)continue;
@@ -104,7 +104,7 @@ function*yaoS2(b){
  let t=0;
  while(t<3200){
   if(t%170===0){
-   const slit=clamp(PL.x+rnd(-70,70),50,W-50);
+   const slit=clamp(targetPlayer().x+rnd(-70,70),50,W-50);
    addText(slit,26,'SKYFALL','#ccffdd',12,52);
    for(let x=12;x<W;x+=18){
     if(Math.abs(x-slit)<50)continue;
@@ -232,7 +232,7 @@ function*mtoN1(b){
   if(k%5===0)b.S({x:b.x()+rnd(-20,20),y:b.y(),v:DV(2),ang:90+rnd(-15,15),g:'rice:red',r:3,
    fn(u){u.x+=Math.sin(u.t/11)*1.2;}});
   if(k%140===95){
-   const gap=clamp(PL.x+rnd(-54,54),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-54,54),34,W-34);
    addText(gap,H-40,'⌃','#ff8080',20,44);
    for(let x=12;x<W;x+=24){
     if(Math.abs(x-gap)<38)continue;
@@ -262,7 +262,7 @@ function*mtoS(b){
    for(let i=0;i<DN(5);i++)b.S({x:nx,y:rnd(70,210),v:DV(2.8),ang:i*72+36,g:'ball:red',r:3});
   }
   if(t%200===120){
-   const gap=clamp(PL.x+rnd(-58,58),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-58,58),34,W-34);
    addText(gap,H-36,'tide','#ff8080',10,48);
    for(let x=12;x<W;x+=22){
     if(Math.abs(x-gap)<40)continue;
@@ -309,7 +309,7 @@ function*choS(b){
    }
   }
   if(t%180===120){
-   const gap=clamp(PL.x+rnd(-52,52),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-52,52),34,W-34);
    addText(gap,26,'stitch','#f0e0b0',10,44);
    for(let x=12;x<W;x+=20){
     if(Math.abs(x-gap)<38)continue;

@@ -66,7 +66,7 @@ function*kuroN2(b){
     b.S({x:b.x(),y:b.y(),v:DV(1.9),ang:i*360/n+k*2,g:'ball:black',r:5,acc:DV(.02)});
   }
   if(k%84===42){
-   const left=k%168===42,gy=clamp(PL.y+rnd(-50,50),48,H*.62);
+   const left=k%168===42,gy=clamp(targetPlayer().y+rnd(-50,50),48,H*.62);
    for(let i=0;i<DN(5);i++)
     b.S({x:left?-12:W+12,y:gy-i*15,v:DV(4.2),ang:left?0:180,g:'ball:purple',r:5,
      fn(u){if(u.x>W*.32&&u.x<W*.68){u.vx*=.72;}return true;}});
@@ -88,7 +88,7 @@ function*kuroS(b){
    }
   }
   if(t%150===110){
-   const gap=clamp(PL.x+rnd(-46,46),38,W-38);
+   const gap=clamp(targetPlayer().x+rnd(-46,46),38,W-38);
    for(let x=12;x<W-6;x+=20){
     if(Math.abs(x-gap)<36)continue;
     b.S({x,y:-14,v:DV(2.4),ang:90,g:x%40<20?'ball:purple':'ball:dblue',r:5,
@@ -97,8 +97,8 @@ function*kuroS(b){
    addText(gap,24,'⌄','#b890d8',20,46);
   }
   if(t%150===60){
-   fxSpark(PL.x,PL.y-150,'#fff',20);
-   addText(PL.x,clamp(PL.y-170,30,H-40),'!','#fff',22,26);
+   fxSpark(targetPlayer().x,targetPlayer().y-150,'#fff',20);
+   addText(targetPlayer().x,clamp(targetPlayer().y-170,30,H-40),'!','#fff',22,26);
    sfx('warn');
    yield 26;
    const sa=b.aim(),perp=sa+90;
@@ -124,7 +124,7 @@ function*junN1(b){
    b.S({x:rnd(0,W),y:-10,v:DV(rnd(3.2,4.2)),ang:90+gust*10+rnd(-4,4),g:'rice:blue',r:3,av:curve,dur:46});
   }
   b.fan(b.x(),b.y(),DN(7),DV(3),60,null,'ball:dblue',{acc:.03,max:DV(5)});
-  const px=clamp(PL.x+rnd(-74,74),24,W-24);
+  const px=clamp(targetPlayer().x+rnd(-74,74),24,W-24);
   fxRing(px,H-10,'#7fdfff',3,34,2,26);
   b.S({x:px,y:H-8,v:DV(.35),ang:-90,g:'ball:dblue',r:4,keep:true,
    fn(u){if(u.t===44){
@@ -154,13 +154,13 @@ function*junS(b){
   }
   if(cycle===150&&t>300){
    sfx('warn');screenFlash(.18,'#bcd0ff');
-   for(const bx of [PL.x-70,PL.x,PL.x+70]){
+   for(const bx of [targetPlayer().x-70,targetPlayer().x,targetPlayer().x+70]){
     addText(clamp(bx,20,W-20),120,'|','#bcd0ff',34,26);
     spawnLaser({x:clamp(bx,20,W-20),y:-10,ang:90,len:H+30,warm:46,dur:16,wid:10,col:'#bcd0ff'});
    }
   }
   if(cycle===232){
-   const gap=clamp(PL.x+rnd(-58,58),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-58,58),34,W-34);
    addText(gap,24,'⌄','#bcd0ff',19,42);
    for(let x=10;x<W;x+=18){
     if(Math.abs(x-gap)<38)continue;
@@ -418,7 +418,7 @@ function*tsgN1(b){
   for(let v=0;v<5;v++){
    b.fan(b.x(),b.y(),DN(7),DV(5.4),40,b.aim(),'kunai:yellow');
    /* speed-line trail: rice bullets stop mid-air, then fire at where player WAS */
-   const px=PL.x,py=PL.y;
+   const px=targetPlayer().x,py=targetPlayer().y;
    b.S({x:b.x(),y:b.y(),v:DV(7),ang:left?10:170,g:'rice:yellow',keep:true,
     fn(u){if(u.t===26){u.vx=0;u.vy=0;u.keep=true;}
      if(u.t===44){const aa=b.aim(u.x,u.y)*Math.PI/180;u.vx=Math.cos(aa)*DV(5.2);u.vy=Math.sin(aa)*DV(5.2);u.keep=false;}
@@ -435,7 +435,7 @@ function*tsgS(b){
   if(t%240===0){
    side*=-1;
    const wallX=clamp(b.x()+side*34,52,W-52);
-   const gy=clamp(PL.y+rnd(-34,34),46,H-46);
+   const gy=clamp(targetPlayer().y+rnd(-34,34),46,H-46);
    for(let y=14;y<H-10;y+=18){
     if(Math.abs(y-gy)<34)continue;
     b.S({x:wallX,y,v:0,ang:0,g:'rice:orange',r:4,keep:true,
@@ -553,7 +553,7 @@ function*kujN1(b){
      return true;}});
   }
   if(k%144===96){
-   const tx=clamp(PL.x+rnd(-50,50),40,W-40),hgt=rnd(80,150);
+   const tx=clamp(targetPlayer().x+rnd(-50,50),40,W-40),hgt=rnd(80,150);
    addText(tx,H-hgt,'▲','#b8d89a',14,50);
    for(let i=0;i<DN(4);i++)
     b.S({x:tx+rnd(-7,7),y:H-12-i*(hgt/4),v:DV(1),ang:-90,g:'bubble:green',r:rnd(8,12),
@@ -584,7 +584,7 @@ function*kujS(b){
    b.S({x:rnd(20,W-20),y:H+16,v:DV(rnd(1.6,2.2)),ang:-90,g:'bubble:green',r:rnd(7,11),
     fn(u){if(u.t>110){for(let i=0;i<4;i++)b.S({x:u.x,y:u.y,v:DV(2.4),ang:i*90+45,g:'ball:green',r:4});return false;}return true;}});
   if(t%320===200){
-   const gap=clamp(PL.x+rnd(-58,58),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-58,58),34,W-34);
    addText(gap,H-42,'⌃','#b8d89a',20,56);
    for(let x=12;x<W;x+=22){
     if(Math.abs(x-gap)<40)continue;
@@ -722,7 +722,7 @@ function*ooyS(b){
  let t=0;
  while(true){
   if(t%140===20){
-   const mx=clamp(PL.x,40,W-40),my=clamp(PL.y-20,40,H-40);
+   const mx=clamp(targetPlayer().x,40,W-40),my=clamp(targetPlayer().y-20,40,H-40);
    addText(mx,my,'✦','#ffd050',30,42);sfx('warn');
    yield 36;
    const slashA=Math.atan2(my-b.y(),mx-b.x())*180/Math.PI+rnd(-14,14);
@@ -805,7 +805,7 @@ function*sesN1(b){
  while(true){
   if(k%80===0){
    const cols=DN(7),rows=3;
-   const toward=PL.x<W/2?0:1;
+   const toward=targetPlayer().x<W/2?0:1;
    for(let cIdx=0;cIdx<cols;cIdx++){
     const order=toward?cIdx:(cols-1-cIdx);
     for(let rI=0;rI<rows;rI++){
@@ -825,7 +825,7 @@ function*sesN1(b){
      fn(u){if(u.t>40)u.x+=Math.sin(u.t/9)*1.6;if(u.y<-20)return false;}});
   }
   if(k%96===48){
-   const px=clamp(PL.x+rnd(-54,54),30,W-30);
+   const px=clamp(targetPlayer().x+rnd(-54,54),30,W-30);
    fxRing(px,H-10,'#aef',4,34,2,24);
    b.S({x:px,y:H-6,v:DV(.2),ang:-90,g:'ball:teal',r:5,keep:true,
     fn(u){if(u.t===34){
@@ -863,7 +863,7 @@ function*sesS2(b){
     b.S({x:gx+rnd(-50,50),y:-14,v:DV(3.2),ang:90+rnd(-14,14),g:'orb:white',r:8});
   }
   if(t%260===130){
-   const side=pick([-1,1]),gap=clamp(PL.y+rnd(-42,42),46,H-46);
+   const side=pick([-1,1]),gap=clamp(targetPlayer().y+rnd(-42,42),46,H-46);
    for(let y=14;y<H-10;y+=18){
     if(Math.abs(y-gap)<36)continue;
     b.S({x:side>0?W+14:-14,y,v:0,ang:0,g:'ball:teal',r:5,keep:true,

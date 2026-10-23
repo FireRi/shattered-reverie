@@ -60,7 +60,7 @@ const CONTROLLER_ROWS=[
  {k:'back',label:'Back'}
 ];
 const settings={musicVol:musicVolIdx,sfxVol:sfxVolIdx,mute:false,shake:true,bloom:true,flash:true,
- autoFire:!!autoFire,showFps:!!showFps,aiDialogue:true};
+ autoFire:!!autoFire,showFps:!!showFps,aiDialogue:true,coop:false};
 function saveSettings(){try{localStorage.setItem('lasr_settings',JSON.stringify(settings));}catch(e){}}
 function applySettings(){
  G.shakeEnabled=settings.shake!==false;
@@ -78,7 +78,7 @@ function loadSettings(){
   if(raw&&typeof raw==='object'){
    if(Number.isFinite(raw.musicVol))settings.musicVol=clamp(raw.musicVol|0,0,VOL_STEPS.length-1);
    if(Number.isFinite(raw.sfxVol))settings.sfxVol=clamp(raw.sfxVol|0,0,SFX_STEPS.length-1);
-   for(const k of ['mute','shake','bloom','flash','autoFire','showFps','aiDialogue'])
+   for(const k of ['mute','shake','bloom','flash','autoFire','showFps','aiDialogue','coop'])
     if(typeof raw[k]==='boolean')settings[k]=raw[k];
   }
  }catch(e){}
@@ -144,6 +144,7 @@ function goTitle(saveScore=true){
  if(saveScore)saveHi();
  if(Replay.rec)Replay.abort();
  if(G.replay)Replay.stop();
+ deactivatePlayer2();clearP2Input();
  TouchUI.focus=false;TouchUI.resetStick();
  Gdemo=false;G.screen='title';G.idleT=0;G.pauseConfirm=null;G.bannerT=0;
  G.replayEnded=false;G.replaySaved=false;G.replayResult='';G.replayMsg='';
@@ -174,6 +175,8 @@ function startRun(){
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  G.wave=null;G.needWave=!!G.story;mobs.length=0;
  resetPlayer(true);PL.graze=0;PL.power=300;
+ if((settings.coop||(typeof Replay!=='undefined'&&Replay.wantP2))&&!G.story&&!Gdemo)activatePlayer2();
+ else{deactivatePlayer2();clearP2Input();}
  nextRoute();
 }
 function nextRoute(){
@@ -181,8 +184,14 @@ function nextRoute(){
  const R=ROUTES[G.routeQueue[G.routeIdx]];
  bgTint=R.tint;bgMode=R.mode||'';
  mobs.length=0;G.wave=null;G.needWave=!!G.story;
- PL.lives=Math.min(8,PL.lives+ (G.routeIdx>0?1:0));
- PL.spells=2;PL.power=Math.max(PL.power,300);
+ for(const p of players){
+  p.lives=Math.min(8,p.lives+(G.routeIdx>0?1:0));
+  p.spells=2;p.power=Math.max(p.power,300);
+  if(p.dead===2&&p.lives>0){
+   p.dead=0;p.alive=true;p.deathT=0;p.deathWindow=0;p.rebirthX=0;p.rebirthY=0;p.inv=120;
+   p.x=p===P2?clamp(PL.x+56,20,W-20):W/2;p.y=H-70;
+  }
+ }
  G.bannerText=R.title.toUpperCase();G.bannerT=130;
  G.screen='play';
  startStageBgm(R);
@@ -215,7 +224,8 @@ function continueFromBoss(){
  beginRunRecording();
  BOSS=null;resetFieldSafe();fx.length=0;ftext.length=0;G.monoRay=null;
  G.wave=null;G.needWave=false;mobs.length=0;G.pauseConfirm=null;
- resetPlayer(true);PL.inv=180;PL.power=Math.max(PL.power,300);
+ if((settings.coop||(typeof Replay!=='undefined'&&Replay.wantP2))&&!G.story)activatePlayer2();
+ for(const p of players){resetPlayer(true,p);p.inv=180;p.power=Math.max(p.power,300);}
  G.routeIdx=clamp(G.contRoute,0,G.routeQueue.length-1);
  const R=ROUTES[G.routeQueue[G.routeIdx]];
  G.bossIdx=clamp(G.contBoss,0,R.bosses.length-1);
@@ -275,8 +285,7 @@ function updatePlay(){
  else G.dispScore=G.score;
  if(G.livesPulse>0)G.livesPulse--;
  if(G.trance>0){G.trance--;if(G.trance===0){G.od=0;}}
- playerUpdate();
- playerGrazeCheck();
+ for(const p of players){playerUpdate(p);playerGrazeCheck(p);}
  bossUpdate();
  mobUpdate();updateStoryWave();
  eUpdate();pUpdate();itemUpdate();laserUpdate();
@@ -291,10 +300,10 @@ function updatePlay(){
  if(flashA>0)flashA-=.06;
  if(G.bannerT>0)G.bannerT--;
  else if(G.story&&!Gdemo){
-  if(!BOSS&&G.needWave&&!G.wave&&PL.dead!==2)startStoryWave();
-  else if(!BOSS&&!G.needWave&&!G.wave&&G.bossIdx===0&&PL.dead!==2)beginBossFight();
+  if(!BOSS&&G.needWave&&!G.wave&&!allPlayersDown())startStoryWave();
+  else if(!BOSS&&!G.needWave&&!G.wave&&G.bossIdx===0&&!allPlayersDown())beginBossFight();
  }
- else if(!BOSS&&G.bossIdx===0&&PL.dead!==2)beginBossFight();
+ else if(!BOSS&&G.bossIdx===0&&!allPlayersDown())beginBossFight();
 }
 function menuNav(len,cur){
  if(hitK(KEY.UP)){sfx('cur');return (cur+len-1)%len;}
@@ -310,6 +319,7 @@ function updateMenus(){
     else if(hitK(KEY.S)){sfx('ok');G.settingsCursor=0;G.settingsFrom='title';G.screen='settings';}
     else if(hitK(KEY.H)){sfx('ok');G.helpFrom='title';G.screen='help';}
     else if(hitK(KEY.V)){sfx('ok');G.replayCursor=Replay.has()?0:2;G.replayFrom='title';G.screen='replay';}
+    else if(hitK(KEY.TWO)){settings.coop=!settings.coop;saveSettings();sfx('ok');}
     break;
   case 'diff':
    G.diffCursor=menuNav(DIFFS.length,G.diffCursor);
@@ -456,7 +466,10 @@ function restartRoute(){
  beginRunRecording();
  BOSS=null;eshots.length=0;pshots.length=0;items.length=0;fx.length=0;ftext.length=0;elasers.length=0;
  mobs.length=0;G.wave=null;G.needWave=!!G.story;G.pauseConfirm=null;G.freeze=0;flashA=0;
- G.monoRay=null;resetPlayer(true);G.bossIdx=0;
+ G.monoRay=null;
+ if((settings.coop||(typeof Replay!=='undefined'&&Replay.wantP2))&&!G.story)activatePlayer2();
+ for(const p of players)resetPlayer(true,p);
+ G.bossIdx=0;
  const R=ROUTES[G.routeQueue[G.routeIdx]];
  G.bannerText=R.title.toUpperCase();G.bannerT=110;
  G.screen='play';
@@ -466,7 +479,9 @@ function restartRoute(){
 function autoPause(){
  for(const k in keys)keys[k]=false;
  for(const k in edge)edge[k]=false;
+ clearP2Input();
  if(typeof GamepadSupport!=='undefined'&&GamepadSupport.releaseAll)GamepadSupport.releaseAll();
+ if(typeof GamepadSupport!=='undefined'&&GamepadSupport.releaseAll2)GamepadSupport.releaseAll2();
  if(typeof TouchPad!=='undefined'&&TouchPad.release)TouchPad.release();
  else TouchUI.release();
  if(G.screen==='play'&&!Gdemo){G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;}
@@ -491,6 +506,7 @@ function startDemo(){
  G.score=0;G.dispScore=0;G.spellsPlayed=0;G.spellsCaptured=0;G.deaths=0;
  G.od=0;G.trance=0;G.streak=0;G.bestStreak=0;G.streakMult=1;G.sparksGot=0;G.spellHist=[];
  mobs.length=0;G.wave=null;G.needWave=false;
+ deactivatePlayer2();clearP2Input();
  resetPlayer(true);PL.power=300;
  const R=ROUTES[ri];bgTint=R.tint;bgMode=R.mode||'';
  G.bannerText=R.title.toUpperCase();G.bannerT=80;
@@ -749,6 +765,7 @@ function drawHUD(){
    const flags=[];
    if(AudioSys.muted)flags.push('MUTED');
    if(autoFire)flags.push('AUTO');
+   if(players.length>1&&!Gdemo)flags.push('2P');
    if(G.replay){
     const rp=Replay.play;
     const cur=rp?Math.min(Math.floor(rp.idx/3),rp.data.frames|0):0;
@@ -822,8 +839,9 @@ function drawHUD(){
   }
  }
  if(!cab){
-  const stW=306,stH=38,stX=8,stY=64;
-  const nearHUD=!PL.dead&&PL.x<stX+stW+10&&PL.y>stY-12&&PL.y<stY+stH+18;
+  const coop=players.length>1&&!Gdemo;
+  const stW=306,stH=coop?58:38,stX=8,stY=64;
+  const nearHUD=players.some(p=>!p.dead&&p.x<stX+stW+10&&p.y>stY-12&&p.y<stY+stH+18);
   cx.save();
   if(nearHUD)cx.globalAlpha=.38;
   uiPanel(stX,stY,stW,stH,{cut:5,ticks:false,col:'rgba(110,230,255,.14)',fill:'rgba(2,8,16,.34)'});
@@ -880,6 +898,30 @@ function drawHUD(){
   cx.fillText(G.trance>0?'x1.5':G.od+'/'+G.odMax,296,rowLabel);
   uiSegBar(210,rowBar,86,4,G.trance>0?G.trance/330:G.od/G.odMax,
    G.trance>0?(Math.floor(G.frame/4)%2?UI.cyan:UI.magenta):'#7f6cff',{segs:18,frame:false});
+  if(coop){
+   const r2=stY+40,bar2=stY+50;
+   cx.textAlign='left';cx.fillStyle=UI.magenta;cx.font='8px "Pixel8",monospace';
+   cx.fillText('P2',14,r2);
+   if(P2.dead===2){cx.fillStyle=UI.red;cx.fillText('DOWN',40,r2);}
+   else{
+    for(let i=0;i<clamp(P2.lives,0,8);i++){
+     cx.fillStyle=UI.amber;cx.beginPath();
+     cx.moveTo(40+i*7,r2+1);cx.lineTo(45+i*7,r2+6);cx.lineTo(35+i*7,r2+6);
+     cx.closePath();cx.fill();
+    }
+    for(let i=0;i<clamp(P2.spells,0,4);i++){
+     cx.fillStyle=UI.cyan;cx.fillRect(98+i*7,r2+1,5,5);
+    }
+   }
+   cx.fillStyle='#8fb3c6';cx.fillText('PWR',136,r2);
+   cx.textAlign='right';cx.fillStyle='#dff';cx.fillText(String(Math.floor(P2.power/100)),208,r2);
+   uiSegBar(136,bar2,72,4,P2.power/500,'#ff70c0',{segs:14,frame:false});
+   cx.textAlign='left';cx.fillStyle='#8fb3c6';cx.fillText('FLASH',218,r2);
+   cx.textAlign='right';cx.fillStyle=P2.flash>=P2.flashMax?UI.cyan:'#bcdff0';
+   cx.fillText(P2.flash>=P2.flashMax?'READY':P2.flash+'/'+P2.flashMax,296,r2);
+   uiSegBar(218,bar2,78,4,P2.flash/P2.flashMax,P2.flash>=P2.flashMax?'#ffd0ee':'#ff70c0',{segs:14,frame:false});
+   cx.textAlign='left';
+  }
   cx.restore();
  }
  if(!cab&&G.streak>1){
@@ -1239,6 +1281,8 @@ function drawTitle(){
  cx.restore();
  bigTitle(166);
  if(IS_TOUCH){
+  touchBtn(18,42,104,30,'2P '+(settings.coop?'ON':'OFF'),()=>{settings.coop=!settings.coop;saveSettings();sfx('ok');},
+   {id:'title:coop',col:settings.coop?UI.magenta:UI.cyan,font:'bold 9px "Pixel8",monospace'});
   touchBtn(W/2-118,286,236,50,padReady?'START / PAD A':'START',()=>{sfx('ok');G.screen='diff';G.idleT=0;},
    {id:'title:start',font:padReady?'bold 14px "Pixel8",monospace':'bold 18px "Pixel8",monospace',col:UI.magenta});
   touchBtn(W/2-190,352,116,40,'SETTINGS',()=>{sfx('ok');G.settingsCursor=0;G.settingsFrom='title';G.screen='settings';},
@@ -1252,7 +1296,7 @@ function drawTitle(){
   if(padReady)blinkText('Z / PAD A  TO DEPLOY',H/2+92,16);
   else blinkText('PRESS  Z  TO  DEPLOY',H/2+92,18);
   cx.fillStyle=UI.dim;cx.font='9px "Pixel8",monospace';cx.textAlign='center';cx.textBaseline='top';
-   cx.fillText(padReady?'S / PAD START SETTINGS   H HELP   V REPLAY':'S  SETTINGS      H  HELP      V  REPLAY',W/2,H/2+142);
+   cx.fillText(padReady?'S / PAD START SETTINGS   H HELP   V REPLAY   2 CO-OP '+(settings.coop?'ON':'OFF'):'S  SETTINGS   H  HELP   V  REPLAY   2  CO-OP '+(settings.coop?'ON':'OFF'),W/2,H/2+142);
  }
  uiPanel(120,H-82,400,56,{cut:6,col:'rgba(90,220,255,.32)',ticks:false,fill:'rgba(3,9,18,.72)'});
  cx.textAlign='center';cx.textBaseline='top';
@@ -1814,7 +1858,8 @@ function drawHelp(){
   ['GRAZE','Charges flash + OD'],['FLASH','30 graze: clear + damage'],['OVERDRIVE','80 graze: ×1.5 dmg'],
   ['1CC','Full route · 1 credit'],['CONTINUE','1 credit · ends 1CC'],['RETRY','Pause restart · 1 credit'],
   ['STORY','Waves, then the boss'],['STORY 1CC','Waves + no continues'],
-  ['RANK','Capture spells to rank up'],['REPLAY','Watch or share a run']
+  ['RANK','Capture spells to rank up'],['REPLAY','Watch or share a run'],
+  ['CO-OP','2P: WASD + J/K/L/I']
  ];
  cx.textAlign='left';cx.textBaseline='top';
  cx.font='8px "Pixel8",monospace';cx.fillStyle=UI.cyan;

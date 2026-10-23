@@ -9,8 +9,8 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Entry point:** `index.html`; scripts load in dependency order and share globals.
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
-- **Last feature commit:** `b838466 Add desktop and mobile controller support` (pushed); prior cabinet/danmaku work `25d59e0`, context refresh `cbd2a5b`.
-- **Current uncommitted work:** replay/limitations pass across `js/engine.js`, `js/replay.js`, `js/main.js`, `js/audio.js`, `js/music.js`, `js/gamepad.js`, `js/render.js`, `js/boss.js`, `js/story.js`, `js/cabinet.js`, `index.html`, `README.md`, and this file. Not committed or pushed.
+- **Last feature commit:** `5efd057 Add replay system and performance/audio polish` (pushed); prior controller work `b838466`, cabinet/danmaku work `25d59e0`.
+- **Current feature work:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay; touches `js/engine.js`, `js/player.js`, `js/main.js`, `js/boss.js`, `js/render.js`, `js/replay.js`, `js/gamepad.js`, `js/cabinet.js`, and the `patterns.js`/`p4-6`/`pex*` target aiming helpers.
 - **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
 ## Run And Verify
@@ -29,6 +29,7 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-flow-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\music-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"; Remove-Item Env:TOUCH
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\coop-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\padcheck.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\shot.js"
@@ -43,9 +44,10 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\client-ai-check.js"
 
 Expected current results:
 
-- Desktop smoke: `22/22 PASSED`
-- Touch smoke: `34/34 PASSED`
+- Desktop smoke: `25/25 PASSED`
+- Touch smoke: `37/37 PASSED`
 - `controller-check.js`: desktop and touch `17/17 PASSED` with a mocked standard pad; covers held/edge keys, non-standard axis pairs, context mapping, enable/disable, remap capture, bind suppression, hotplug cleanup, persistence, and controller-screen drawing.
+- `coop-check.js`: `CO-OP PASSED` for title toggle/persistence, P2 activation/spawn, isolated movement/shooting, nearest-player items, one-player-down continuation, both-down game over, route revive, 2P replay record/playback, second-pad ownership, and co-op HUD drawing.
 - `replay-check.js`: `REPLAY PASSED` after a 5,000-frame deterministic record/playback with zero RNG starvation.
 - `replay-flow-check.js`: `REPLAY FLOW PASSED` for save/export/import, playback-end results, input cleanup, auto-fire restoration, adaptive performance tiers, and no-AudioContext fallback.
 - `music-check.js`: `MUSIC STRUCTURE PASSED` for the 36-bar form, arrangement sections, outro gating, and finite lead events.
@@ -65,6 +67,7 @@ Screenshots are written to `C:\Users\Gabby\AppData\Local\Temp\opencode\`:
 - `cab-*.png`: 1920x1080 cabinet play/dialog/boss/pause/result plus 1366x768 checks
 - `xeno-*.png`: dice non-spell, Double or Nothing cutin/pattern, and All-In hand
 - `pad-*.png`: connected-pad title prompt, Settings controller row, desktop/touch Controller screen, bind-listening overlay, and portrait layout
+- `coop-play*.png` / `coop-pause.png`: 2P player sprites, compact two-row status rail, 2P cabinet/score flag, and pause layout
 - `rehaul-*.png` / `rehaulN-*.png`: one spell and one non-spell per boss at 960x720; `rehaul-sheet-*.jpg` are contact sheets
 
 The smoke/pad/screenshot harnesses are temporary, not committed. Add a portable `tools/` harness only if it becomes necessary.
@@ -79,7 +82,7 @@ js/gamepad.js    Gamepad API bridge, padKeys/padEdge, remap + persistence
 js/replay.js     deterministic input/RNG replay, save, JSON import/export
 js/audio.js      Web Audio buses, SFX synthesis, volume persistence
 js/music.js      procedural stage/boss score generator
-js/player.js     player, shots, bombs, graze, movement
+js/player.js     player states (PL/P2/players), shots, bombs, graze, movement
 js/dialogue.js   44 boss banter profiles, AI cache, validation, fallbacks
 js/boss.js       boss lifecycle and shared boss context API
 js/story.js      story-mode mobs and wave control
@@ -94,9 +97,9 @@ js/boot.js       viewport fitting, DOM touch pad, fullscreen, canvas tap zones
 All game scripts live in `js/`. `index.html` stays at the repository root; `api/` must stay at the root for Vercel.
 
 - All cross-file communication is through globals. Shared state includes `G`, `PL`, `BOSS`, `eshots`, `mobs`, `ROUTES`, and `settings`.
-- `GamepadSupport` in `js/gamepad.js` polls `navigator.getGamepads()` once per fixed step from `js/main.js`. It writes held/edge state into `padKeys`/`padEdge`; `down()` and `hitK()` merge those with keyboard state, so controller support must not overwrite `keys`/`edge`.
+- `GamepadSupport` in `js/gamepad.js` polls `navigator.getGamepads()` once per fixed step from `js/main.js`. It writes held/edge state into `padKeys`/`padEdge`; in co-op a second pad writes `pad2Keys`/`pad2Edge`. `down()`/`hitK()` and `downP()`/`hitP()` merge those with keyboard state, so controller support must not overwrite `keys`/`edge`/`p2keys`/`p2edge`.
 - Controller defaults: A shot, B flash, X spell, LB focus, Start pause, B cancel. The first connected pad wins; navigation scans axis pairs `0/1`, `2/3`, and `4/5` (strongest plausible pair) plus D-pad buttons `12-15`. Config persists in `lasr_gamepad`; standard-map labels are friendly, non-standard pads show `BTN n` and should be remapped.
-- `Replay` in `js/replay.js` records per-frame input masks and `SimRng` output, snapshots the four dialogue lines, saves the last completed/failed single-credit attempt in `lasr_replay`, and exports/imports JSON run files. `G.replay` switches play into playback; `Replay.beforeUpdate()` is called before `updatePlay()`, and `Replay.endPlayback()` opens results without saving a high score. During playback the top-right HUD flags become `REPLAY <frame>/<total>`, and results are tagged `REPLAY // COMPLETE`, `REPLAY // FAILED`, or `REPLAY ENDED // NO SCORE SAVED`. Restart is blocked during playback. Playback files cap at 4.2 MB; continuing/retrying starts a new attempt rather than stitching segments. Replay opens from Settings or title `V` / the title touch button.
+- `Replay` in `js/replay.js` records per-frame input masks and `SimRng` output, snapshots the four dialogue lines, saves the last completed/failed single-credit attempt in `lasr_replay`, and exports/imports JSON run files. Format v2 adds optional `p2inputs` (3 numbers/frame); v1 files still load as 1P, and `Replay.wantP2` activates P2 for 2P playback. `G.replay` switches play into playback; `Replay.beforeUpdate()` is called before `updatePlay()`, and `Replay.endPlayback()` opens results without saving a high score. During playback the top-right HUD flags become `REPLAY <frame>/<total>`, and results are tagged `REPLAY // COMPLETE`, `REPLAY // FAILED`, or `REPLAY ENDED // NO SCORE SAVED`. Restart is blocked during playback. Playback files cap at 4.2 MB; continuing/retrying starts a new attempt rather than stitching segments. Replay opens from Settings or title `V` / the title touch button.
 - The Controller screen is `G.screen='controller'` from Settings. Remap capture waits for a clean release, then binds the next new button; after binding, `GamepadSupport` suppresses mapped input until all buttons are released so the bind press cannot activate pause/cancel.
 - Touch Controller screen uses `TouchUI` rows; the DOM pad hides on that screen, and a full-screen touch zone cancels a listening bind. Desktop shows bind instructions in the footer.
 - `IS_TOUCH` is defined in `js/engine.js:18`; `js/boot.js` reads it to apply `body.touch` and pad layout.
@@ -117,8 +120,9 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 - Story mode uses waves and three credits; 1CC and Story 1CC use one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
 - Save keys include `lasr_hi`, `lasr_hi_0`–`lasr_hi_2` (per-difficulty), `lasr_diff` (0–2), `lasr_sel` (stage flags), `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, `lasr_gamepad`, and `lasr_replay`.
 - Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
-- Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, A autofire, F show FPS, M mute, `-`/`+` music.
-- Controller: A shot/confirm, B flash/cancel, X spell, LB focus, Start pause; D-pad/stick navigate. Title Start/Y open Settings, View opens Help. Settings → Controller handles enable, rebind, reset, and persistence.
+- Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.
+- Co-op P2 keyboard: WASD move, J shot, K flash, L spell, I focus. P2 keys are ignored while solo so P1 hotkeys keep working; while co-op is active P2 consumes those keys before P1.
+- Controller: A shot/confirm, B flash/cancel, X spell, LB focus, Start pause; D-pad/stick navigate. Title Start/Y open Settings, View opens Help. In co-op the first pad drives P1 and the second pad drives P2. Settings → Controller handles enable, rebind, reset, and persistence.
 
 ## UI System
 
@@ -155,9 +159,23 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - `DOCUMENTATION.md` is a stale untracked duplicate; leave it unstaged unless the user asks to update/remove it.
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
-## Current Work State (2026-10-21)
+## Current Work State (2026-10-23)
 
-Completed (uncommitted replay/limitations pass):
+Completed (local co-op Phase 2):
+
+- `js/player.js` builds `PL` and `P2` from `newPlayerState(slot)`, exports `players`, and parameterizes lifecycle/combat/graze functions per player. `PL` remains the P1 alias; `P2` joins `players` only while co-op runs.
+- P2 keyboard input uses `p2keys`/`p2edge` with canonical codes: WASD move, J shot, K flash, L spell, I focus. P2 bindings are consumed before P1 `keys` only while `players.length>1`, so solo hotkeys (`A` autofire, `S` settings) are unchanged; in co-op `A`/`S` become P2 movement.
+- Title `2` (touch `2P` button) toggles and persists `settings.coop`; `startRun()` activates P2 outside Story/demo. P2 spawns 56 px right of P1. Story co-op is intentionally disabled.
+- Boss aim and most pattern targeting use `targetPlayer()` (nearest living player); co-op boss HP is `1.8x`. Direct `PL` references in pattern files were replaced with `targetPlayer()`.
+- Items target the nearest living player; graze/damage/bombs/deathbomb are per player. `onGameOver()` fires only when all players are down. Route advance revives a downed player if the route bonus gives them a life. One player dying does not end the run.
+- Non-cabinet HUD draws a second magenta `P2` row (lives/spells/PWR/FLASH) and adds a `2P` score flag; cabinet flags include `2P`. P2 sprite uses magenta accents.
+- `js/gamepad.js` polls a second pad into `pad2Keys`/`pad2Edge` when `players.length>1`; the first pad stays P1, the second drives P2. `releaseAll2()` runs on pause cleanup/disconnect.
+- Replay format is v2 with optional `p2inputs` (3 numbers/frame). v1 files still load as 1P. `Replay.wantP2` activates P2 during playback; `Replay.start()`/`stop()` clear P2 input and analog state. 2P runs record/play back P2 movement deterministically.
+- Verified with desktop/touch smoke, `replay-check.js`, `replay-flow-check.js`, `all-boss-check.js`, `controller-check.js`, and new `coop-check.js`. Visual check: 1280x960 co-op play/pause and touch title `2P` button.
+
+Next: tune co-op balance and pattern readability against two players, test two physical pads/controllers, and decide whether Story co-op or online lockstep should follow.
+
+Completed (replay/limitations pass, committed `5efd057`):
 
 - Added `js/replay.js` and `SimRng` record/playback, per-frame input masks including `padEdge`, dialogue snapshots, local save, validated JSON export/import, 4.2 MB cap, pause restart lock, and playback-end results without high-score writes.
 - Added Replay UI from Settings and title (`V` on desktop, title touch button), five rows (`PLAY LAST ATTEMPT`, `EXPORT RUN FILE`, `IMPORT RUN FILE`, `DELETE SAVE`, `BACK`), touch hit zones, status/error messages, an in-HUD `REPLAY <frame>/<total>` playback counter, and result-screen saved/ended tags.
@@ -167,7 +185,7 @@ Completed (uncommitted replay/limitations pass):
 - Improved stage 1-3 composition (Touhou-community touchstones: ZUN's hooks, Alstroemeria/eurobeat pulse): replaced random rhythm/contour noodles with two repeating question/answer hook motifs (chord-tone snapped strong beats, cadential tails), added sus/ninth chord color, up/down arpeggios, and off-beat eurobeat bass for S3. Verified via `music-check.js`, `smoke.js` (44 unique themes), and `all-boss-check.js`.
 - Hardened Web Audio unlock/no-context fallbacks, expanded controller stick scanning to axis pairs `0/1`, `2/3`, `4/5`, and added cabinet quality flags.
 - Optimized single-threaded rendering for low-spec devices: baked plain-circle/orb/star/bubble enemy bullets into cached sprites (`proceduralSprite` in `js/render.js`) so the common untextured colors (`ball:white`/`gray`, `orb:brown`, stars) render as one `drawImage` instead of per-frame `arc` fills and per-orb `createRadialGradient`. Verified via desktop/touch smoke, `all-boss-check.js`, `replay-check.js`, `xeno-check.js`, and `controller-check.js`.
-- Updated `README.md`, this file, help/replay copy, and test harnesses. Not committed or pushed.
+- Updated `README.md`, this file, help/replay copy, and test harnesses. Committed as `5efd057`.
 
 Completed (controller pass, committed):
 
@@ -176,7 +194,7 @@ Completed (controller pass, committed):
 - Added the Settings → Controller screen (`G.screen='controller'`) with enable/disable, six bind actions, reset, back, pad status, button/axis counts, listening state, and desktop/touch layouts. Touch can tap rows to bind and tap anywhere to cancel a listen; the touch binding overlay covers the screen.
 - Expanded controller contexts: title Start/Y opens Settings, View opens Help, menus use A/B/Start, play maps shot/flash/spell/focus/pause, demo exits on controller input.
 - Updated the title prompt/footer, help control matrix, cabinet `PAD` flag, README architecture/input/testing docs, and this file. Committed and pushed as `b838466`.
-- Verified with a mocked standard pad on desktop and touch: `controller-check.js` passes 17/17 in both modes; desktop smoke `22/22`, touch smoke `34/34`, and `ALL-BOSS PASSED` (44/102) still pass.
+- Verified with a mocked standard pad on desktop and touch: `controller-check.js` passes 17/17 in both modes, desktop and touch smoke pass, and `ALL-BOSS PASSED` (44/102) still passes.
 - Screenshot review: controller settings row, desktop Controller screen, touch two-column screen, listening overlay, and portrait layout are legible after moving the status header clear of the panel title. The desktop title prompt uses `Z / PAD A TO DEPLOY`, and touch START changes to `START / PAD A` at 14px so it fits the button.
 
 Earlier completed (committed):
@@ -207,7 +225,8 @@ Current verification state:
 
 - All intended JavaScript files pass `node --check`, including `js/replay.js`, `js/gamepad.js`, and `js/cabinet.js`.
 - `controller-check.js` passes 17/17 on desktop and touch with a mocked standard pad; `all-boss-check.js` is `ALL-BOSS PASSED` with 44 bosses and 102 attacks.
-- Desktop smoke passes `22/22`; touch smoke passes `34/34`; cabinet does not activate in fake-DOM or touch runs.
+- Desktop smoke passes `25/25`; touch smoke passes `37/37`; cabinet does not activate in fake-DOM or touch runs.
+- `coop-check.js` passes for P2 activation, input isolation, items, one/both-player death handling, route revive, second-pad ownership, 2P replay determinism, and HUD drawing.
 - `replay-check.js` and `replay-flow-check.js` pass; the flow test also exercises adaptive performance tiers and the no-audio fallback.
 - Controller screenshots reviewed at 1280x960, landscape touch 844x390, and portrait 390x844. The title prompt, settings row, status header, two-column touch grid, listening overlay, and footer fit without clipping.
 - User confirmed controller input works in real testing; non-standard pads and other browser/OS combinations remain optional coverage checks.
@@ -222,8 +241,9 @@ Current verification state:
 
 Next steps:
 
-1. Run the screenshot harnesses after the replay/title/result UI changes, especially desktop 1280x960, landscape touch, portrait, and cabinet action UI.
-2. Validate non-standard controller hardware, real-device touch/fullscreen spacing, and other browser/OS combinations if available.
-3. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
-4. Playtest Story 1CC, story formations, replay playback across routes, dense-frame performance tiers, and the revised bosses; tune only if readability or determinism breaks.
-5. Commit/push only when the user explicitly asks.
+1. Playtest local co-op with two physical pads/keyboards and tune boss HP (currently `1.8x`), pattern targeting, HUD density, and route-revive feel.
+2. Decide whether Story co-op or online lockstep/WebRTC should follow; there is still no netplay implementation in the repo.
+3. Validate non-standard controller hardware, real-device touch/fullscreen spacing, and other browser/OS combinations if available.
+4. Test live `/api/generate-dialog` output once `GROQ_API_KEY` is configured; local banter remains the fallback.
+5. Playtest Story 1CC, story formations, replay playback across routes, dense-frame performance tiers, and the revised bosses; tune only if readability or determinism breaks.
+6. Commit/push only when the user explicitly asks.

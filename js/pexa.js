@@ -54,7 +54,7 @@ function*preN(b){
     b.S({x:b.x(),y:b.y(),v:DV(4.6),ang:70+i*(40/Math.max(DN(6)-1,1))+25,g:'orb:brown',r:7,
      fn(u){if(u.t>26&&u.y>H-24&&u.vy>0){u.vy*=-.7;fxRing(u.x,u.y,'#c85',3,22,2,12);}}});
   if(k%112===56){
-   const gy=rnd(H*.36,H*.62),gap=clamp(PL.x,36,W-36);
+   const gy=rnd(H*.36,H*.62),gap=clamp(targetPlayer().x,36,W-36);
    addText(gap,gy-22,'hop','#c8e0a0',10,34);
    for(let x=20;x<W-10;x+=28){
     if(Math.abs(x-gap)<38)continue;
@@ -116,7 +116,7 @@ function*empS(b){
    screenFlash(.14,'#fff');fxRing(W/2,150,'#fff',5,64,3,24);
   }
   if(cmd===0&&t%40===20){
-   const gap=clamp(PL.x+rnd(-44,44),34,W-34);
+   const gap=clamp(targetPlayer().x+rnd(-44,44),34,W-34);
    for(let x=10;x<W;x+=20){
     if(Math.abs(x-gap)<34)continue;
     b.S({x,y:-12,v:DV(.01),ang:90,g:'amulet:white',r:5,
@@ -225,7 +225,7 @@ function*jinS(b){
    b.fan(b.x(),b.y(),DN(4),DV(3.4),40,null,'ball:gray');
   }
   if(talent===3&&t%100===60){
-   const gap=clamp(PL.x+rnd(-55,55),55,W-55);
+   const gap=clamp(targetPlayer().x+rnd(-55,55),55,W-55);
    addText(gap,24,'wall','#c0d8d8',10,34);
    for(let x=10;x<W;x+=24){if(Math.abs(x-gap)<58)continue;b.S({x,y:-12,v:DV(3.8),ang:90,g:'ball:white',r:4});}
   }
@@ -242,7 +242,7 @@ function*yabN(b){
  while(true){
   if(k%52===0){
    for(const s of [-1,1]){
-    const px=clamp(PL.x+s*130,30,W-30);
+    const px=clamp(targetPlayer().x+s*130,30,W-30);
     fxSpark(px,-8,'#ccb',16);
     for(let i=0;i<3;i++)b.S({x:px,y:-12-i*12,v:DV(4+i*.6),ang:88,g:'rice:white',r:3,
      fn(u){if(u.t===22){const side=u.x<W/2?1:-1;u.vx=side*DV(2.8);}if(u.x<-14||u.x>W+14)return false;}});
@@ -259,7 +259,7 @@ function*yabS(b){
  while(t<3100){
   if(t%170===0){
    sfx('warn');screenFlash(.1,'#dccbaa');
-   const gap=clamp(PL.x+rnd(-48,48),42,W-42);
+   const gap=clamp(targetPlayer().x+rnd(-48,48),42,W-42);
    addText(gap,26,'world A','#fff',10,44);
    for(let x=10;x<W;x+=22){
     if(Math.abs(x-gap)<42)continue;
@@ -267,7 +267,7 @@ function*yabS(b){
    }
   }
   if(t%170===46){
-   const gap=clamp(PL.x+rnd(-48,48),42,W-42);
+   const gap=clamp(targetPlayer().x+rnd(-48,48),42,W-42);
    addText(gap,H-30,'world B','#aaa',10,44);
    for(let x=10;x<W;x+=22){
     if(Math.abs(x-gap)<42)continue;

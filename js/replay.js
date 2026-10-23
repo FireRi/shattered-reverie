@@ -1,13 +1,13 @@
 "use strict";
-const REPLAY_VERSION=1,REPLAY_KEY='lasr_replay',REPLAY_MAX_BYTES=4200000;
+const REPLAY_VERSION=2,REPLAY_KEY='lasr_replay',REPLAY_MAX_BYTES=4200000;
 const REPLAY_KEYS=[KEY.LEFT,KEY.RIGHT,KEY.UP,KEY.DOWN,KEY.SHIFT,KEY.Z,KEY.X,KEY.C];
 const Replay={
- data:null,rec:null,play:null,playback:false,ax:0,ay:0,analog:false,autoFire:null,
+ data:null,rec:null,play:null,playback:false,ax:0,ay:0,analog:false,p2ax:0,p2ay:0,p2analog:false,autoFire:null,wantP2:false,
  validText(v,max){
   return typeof v==='string'&&v.length>0&&v.length<=max;
  },
  normalize(d){
-  if(!d||typeof d!=='object'||d.v!==REPLAY_VERSION)return null;
+  if(!d||typeof d!=='object'||(d.v!==1&&d.v!==REPLAY_VERSION))return null;
   if(!Array.isArray(d.inputs)||!Array.isArray(d.rng))return null;
   const inputs=d.inputs;
   if(inputs.length<90||inputs.length%3!==0||inputs.length>5400000)return null;
@@ -17,6 +17,14 @@ const Replay={
   }
   for(let i=0;i<d.rng.length;i++){
    if(!Number.isFinite(d.rng[i]))return null;
+  }
+  let p2inputs=null;
+  if(d.v===REPLAY_VERSION&&d.p2inputs!=null){
+   if(!Array.isArray(d.p2inputs)||d.p2inputs.length!==inputs.length)return null;
+   for(let i=0;i<d.p2inputs.length;i++){
+    if(!Number.isFinite(d.p2inputs[i]))return null;
+   }
+   p2inputs=d.p2inputs.slice();
   }
   const dialogues={};
   if(d.dialogues&&typeof d.dialogues==='object'){
@@ -43,6 +51,7 @@ const Replay={
   return {
    v:REPLAY_VERSION,
    inputs:inputs.slice(),
+   p2inputs,
    rng:d.rng.slice(),
    dialogues,
    diff:diff>=0&&diff<=5?diff:1,
@@ -107,6 +116,17 @@ const Replay={
   if(stick)mask|=1<<17;
   if(autoFire)mask|=1<<18;
   ins.push(mask,stick?TouchUI.stick.ax:0,stick?TouchUI.stick.ay:0);
+  if(typeof players!=='undefined'&&players.length>1){
+   if(!this.rec.p2inputs)this.rec.p2inputs=[];
+   let mask2=0,edge2=0;
+   for(let i=0;i<REPLAY_KEYS.length;i++){
+    const k=REPLAY_KEYS[i];
+    if(p2keys[k]||pad2Keys[k])mask2|=1<<i;
+    if(p2edge[k]||pad2Edge[k])edge2|=1<<i;
+   }
+   mask2|=edge2<<8;
+   this.rec.p2inputs.push(mask2,0,0);
+  }
  },
  captureDialogue(id,lines){
   if(!this.rec||!id||!Array.isArray(lines)||lines.length!==4)return;
@@ -131,7 +151,8 @@ const Replay={
   if(!d)return false;
   if(d.idx>=d.data.inputs.length){this.playback=false;return false;}
   const ins=d.data.inputs;
-  const mask=ins[d.idx]|0,ax=ins[d.idx+1]||0,ay=ins[d.idx+2]||0;
+  const off=d.idx;
+  const mask=ins[off]|0,ax=ins[off+1]||0,ay=ins[off+2]||0;
   d.idx+=3;
   for(let i=0;i<REPLAY_KEYS.length;i++){
    const k=REPLAY_KEYS[i];
@@ -144,6 +165,19 @@ const Replay={
   this.analog=!!(mask&(1<<17));
   this.ax=ax;this.ay=ay;
   autoFire=!!(mask&(1<<18));
+  const p2=d.data.p2inputs;
+  if(p2){
+   const m2=p2[off]|0,ax2=p2[off+1]||0,ay2=p2[off+2]||0;
+   for(let i=0;i<REPLAY_KEYS.length;i++){
+    const k=REPLAY_KEYS[i];
+    p2keys[k]=!!(m2&(1<<i));
+    p2edge[k]=!!(m2&(1<<(i+8)));
+    pad2Keys[k]=false;
+    pad2Edge[k]=false;
+   }
+   this.p2analog=!!(m2&(1<<17));
+   this.p2ax=ax2;this.p2ay=ay2;
+  }
   return true;
  },
  finish(result){
@@ -163,7 +197,7 @@ const Replay={
   return this.save(rec);
  },
  abort(){
-  this.rec=null;
+  this.rec=null;this.wantP2=false;
   SimRng.end();
  },
  start(){
@@ -173,6 +207,8 @@ const Replay={
   this.playback=true;
   this.play={data:d,idx:0};
   this.ax=0;this.ay=0;this.analog=false;
+  this.p2ax=0;this.p2ay=0;this.p2analog=false;
+  this.wantP2=!!(d.p2inputs&&d.p2inputs.length);
   this.autoFire=autoFire;
   G.replay=true;G.replayEnded=false;G.replayResult=d.result||'RUN';G.replaySaved=false;G.replayMsg='';
   DIFF=clamp(d.diff|0,0,DIFFS.length-1);
@@ -190,18 +226,20 @@ const Replay={
  },
  stop(){
   if(!this.playback&&!this.play&&!this.autoFire&&G&&!G.replay)return;
-  this.playback=false;this.play=null;
-  this.ax=0;this.ay=0;this.analog=false;
+  this.playback=false;this.play=null;this.wantP2=false;
+  this.ax=0;this.ay=0;this.analog=false;this.p2ax=0;this.p2ay=0;this.p2analog=false;
   for(const k of REPLAY_KEYS){keys[k]=false;edge[k]=false;padKeys[k]=false;padEdge[k]=false;}
+  if(typeof clearP2Input==='function')clearP2Input();
   if(this.autoFire!==null)autoFire=this.autoFire;
   this.autoFire=null;
   if(typeof G!=='undefined'&&G){G.replay=false;G.replayResult='';G.aiDialogue=settings.aiDialogue!==false;}
   SimRng.end();
  },
  endPlayback(){
-  this.playback=false;this.play=null;
-  this.ax=0;this.ay=0;this.analog=false;
+  this.playback=false;this.play=null;this.wantP2=false;
+  this.ax=0;this.ay=0;this.analog=false;this.p2ax=0;this.p2ay=0;this.p2analog=false;
   for(const k of REPLAY_KEYS){keys[k]=false;edge[k]=false;padKeys[k]=false;padEdge[k]=false;}
+  if(typeof clearP2Input==='function')clearP2Input();
   if(this.autoFire!==null)autoFire=this.autoFire;
   this.autoFire=null;
   if(typeof settings!=='undefined')G.aiDialogue=settings.aiDialogue!==false;

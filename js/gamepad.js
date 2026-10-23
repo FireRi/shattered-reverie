@@ -8,6 +8,7 @@ const config={enabled:true,map:Object.assign({},DEFAULT_MAP)};
 const supported=typeof navigator!=='undefined'&&typeof navigator.getGamepads==='function';
 let connected=false,padIndex=-1,padName='',padMapping='',padButtons=0,padAxes=0;
 let prevButtons=[],navDir=null,navNext=0;
+let p2Connected=false,p2Index=-1,p2Name='';
 let capture=null,captureArmed=false,event=null,suppress=false;
 
 function load(){
@@ -81,6 +82,55 @@ function syncWant(want){
   }else if(padKeys[k])padKeys[k]=false;
  }
 }
+function releaseAll2(){
+ if(typeof pad2Keys!=='undefined')for(const k in pad2Keys)pad2Keys[k]=false;
+ if(typeof pad2Edge!=='undefined')for(const k in pad2Edge)pad2Edge[k]=false;
+ p2Connected=false;p2Index=-1;p2Name='';
+}
+function findPad2(){
+ if(!supported)return null;
+ let list;
+ try{list=navigator.getGamepads();}catch(e){return null;}
+ if(!list)return null;
+ for(let i=0;i<list.length;i++){
+  const p=list[i];
+  if(p&&p.connected!==false&&p.index!==padIndex)return p;
+ }
+ return null;
+}
+function syncWant2(want){
+ const seen={};
+ for(const k in pad2Keys)seen[k]=1;
+ for(const k in want)seen[k]=1;
+ for(const k in seen){
+  if(want[k]){
+   if(!pad2Keys[k]){pad2Keys[k]=true;pad2Edge[k]=true;}
+  }else if(pad2Keys[k])pad2Keys[k]=false;
+ }
+}
+function pollSecond(){
+ if(typeof pad2Keys==='undefined'||typeof pad2Edge==='undefined'||typeof KEY==='undefined')return;
+ if(typeof players==='undefined'||players.length<2||typeof G==='undefined'||!G||(G.screen!=='play'&&G.screen!=='pause')){releaseAll2();return;}
+ if(!config.enabled||padIndex<0){releaseAll2();return;}
+ const pad=findPad2();
+ if(!pad){releaseAll2();return;}
+ p2Connected=true;p2Index=pad.index;p2Name=pad.id||'Controller';
+ const buttons=pad.buttons||[];
+ const pressed=[];
+ for(let i=0;i<buttons.length;i++)pressed[i]=down(pad,i);
+ const dir=readDir(pad,pressed);
+ const want={};
+ if(dir.x<0)want[KEY.LEFT]=true;
+ if(dir.x>0)want[KEY.RIGHT]=true;
+ if(dir.y<0)want[KEY.UP]=true;
+ if(dir.y>0)want[KEY.DOWN]=true;
+ const m=config.map;
+ if(pressed[m.shot])want[KEY.Z]=true;
+ if(pressed[m.flash])want[KEY.X]=true;
+ if(pressed[m.spell])want[KEY.C]=true;
+ if(pressed[m.focus])want[KEY.SHIFT]=true;
+ syncWant2(want);
+}
 function assign(action,index){
  if(!Object.prototype.hasOwnProperty.call(DEFAULT_MAP,action))return false;
  if(!Number.isInteger(index)||index<0||index>=32)return false;
@@ -119,6 +169,7 @@ function takeEvent(){
 }
 function poll(){
  if(typeof padKeys==='undefined'||typeof padEdge==='undefined'||typeof KEY==='undefined')return;
+ pollSecond();
  const pad=findPad();
  if(!pad){
   if(connected){
@@ -205,12 +256,12 @@ function poll(){
  if((any||dir.x||dir.y)&&ctx==='title'&&typeof G!=='undefined')G.idleT=0;
  prevButtons=pressed;
 }
-window.addEventListener('gamepaddisconnected',()=>{releaseAll();capture=null;captureArmed=false;});
+window.addEventListener('gamepaddisconnected',()=>{releaseAll();releaseAll2();capture=null;captureArmed=false;});
 load();
 
 window.GamepadSupport={
  config,supported,
- poll,releaseAll,setEnabled,setBinding,resetBindings,buttonLabel,takeEvent,
+ poll,releaseAll,releaseAll2,setEnabled,setBinding,resetBindings,buttonLabel,takeEvent,
  beginCapture,cancelCapture,assign,
  get enabled(){return config.enabled;},
  get connected(){return connected;},
@@ -218,6 +269,9 @@ window.GamepadSupport={
  get padMapping(){return padMapping;},
  get padButtons(){return padButtons;},
  get padAxes(){return padAxes;},
+ get connected2(){return p2Connected;},
+ get pad2Name(){return p2Name;},
+ get pad2Index(){return p2Index;},
  get listening(){return !!capture;},
  get captureArmed(){return captureArmed;},
  get captureAction(){return capture;},

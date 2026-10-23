@@ -129,6 +129,7 @@ function sync(){
  var flags=[];
  if(autoFire)flags.push('AUTO');
  if(AudioSys.muted)flags.push('MUTED');
+ if(typeof players!=='undefined'&&players.length>1)flags.push('2P');
  if(typeof GamepadSupport!=='undefined'&&GamepadSupport.connected&&GamepadSupport.enabled)flags.push('PAD');
  if(settings&&settings.aiDialogue===false)flags.push('AI OFF');
  if(perfLevel<2)flags.push(perfLevel?'FX HALF':'FX LOW');

@@ -68,7 +68,7 @@ function startBoss(def,onDone){
   dlg:defaultDialog(def),
   dgi:0,dShown:0,dT:0,musicPhase:0};
  clearBullets(true);
- PL.inv=Math.max(PL.inv,60);
+ for(const p of players)p.inv=Math.max(p.inv,60);
  sfx('bosswalk');
  startBossBgm(def,0);
 }
@@ -77,7 +77,7 @@ function bossNextAttack(){
  const list=BOSS.def.atk;
  if(BOSS.idx>=list.length){startBossDeath();return;}
  const A=list[BOSS.idx];
- BOSS.atk=A;BOSS.hp=BOSS.maxHp=Math.round(A.l*DSCAL[DIFF].hp);BOSS.timer=A.t*60;
+ BOSS.atk=A;BOSS.hp=BOSS.maxHp=Math.round(A.l*DSCAL[DIFF].hp*(typeof players!=='undefined'&&players.length>1?1.8:1));BOSS.timer=A.t*60;
  BOSS.hpDisp=1;
  BOSS.rate=A.rate!==undefined?A.rate:(A.n?0.03:0.09);
  BOSS.spellActive=!!A.n;
@@ -152,9 +152,9 @@ function registerBoss(id,name,col,bgmSeed,bgmTempo,atk){
  BOSS_DEFS[id]={id,name,col,bgmSeed,bgmTempo,atk};
 }
 function bossCtx(b){
- const aim=(fx,fy)=>Math.atan2(PL.y-(fy!==undefined?fy:b.y),PL.x-(fx!==undefined?fx:b.x))*180/Math.PI;
+ const aim=(fx,fy)=>{const t=targetPlayer();return Math.atan2(t.y-(fy!==undefined?fy:b.y),t.x-(fx!==undefined?fx:b.x))*180/Math.PI;};
  return {
-  b,x:()=>b.x,y:()=>b.y,px:()=>PL.x,py:()=>PL.y,aim,
+  b,x:()=>b.x,y:()=>b.y,px:()=>targetPlayer().x,py:()=>targetPlayer().y,aim,
   S(o){const pg=parseG(o.g)||{};const rest=Object.assign({},o);delete rest.g;
    if(o.c===undefined)rest.c=pg.c;spawnE(Object.assign(rest,{g:pg.g}));},
   ring(x,y,n,v,a0,g,o={}){n=DN(n);v=DV(v);a0=a0||0;const pg=parseG(g);

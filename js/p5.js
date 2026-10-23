@@ -46,7 +46,7 @@ function*sukN1(b){
       b.ring(u.x,u.y,DN(10),DV(2.6),rnd(360),'ball:brown',{r:5});return false;}return true;}});
    }
   if(k%112===56){
-   const px=clamp(PL.x+rnd(-60,60),30,W-30);
+   const px=clamp(targetPlayer().x+rnd(-60,60),30,W-30);
    fxRing(px,H-12,'#c85',4,28,2,24);
    b.S({x:px,y:H-8,v:DV(.2),ang:-90,g:'orb:brown',r:7,keep:true,
     fn(u){if(u.t===42){
@@ -131,7 +131,7 @@ function*taiS(b){
 function*sanN1(b){
  for(let r=0;r<6;r++){
   yield 46;
-  const tx=clamp(PL.x+rnd(-60,60),40,W-40),ty=clamp(PL.y-250,70,180);
+  const tx=clamp(targetPlayer().x+rnd(-60,60),40,W-40),ty=clamp(targetPlayer().y-250,70,180);
   fxSpark(tx,ty,'#ccc',14);
   yield*b.mv(tx,ty,14);
   b.fan(b.x(),b.y(),DN(7),DV(4.4),64,b.aim(),'ball:white',{r:4});
@@ -151,7 +151,7 @@ function*sanS(b){
  let t=0;
  while(t<3300){
   if(t%150===0){
-   const mx=clamp(PL.x+rnd(-40,40),50,W-50),my=clamp(PL.y-230,60,190);
+   const mx=clamp(targetPlayer().x+rnd(-40,40),50,W-50),my=clamp(targetPlayer().y-230,60,190);
    addText(mx,my,'!','#f66',30,40);sfx('warn');
    yield 52;
    yield*b.mv(mx,my,10);

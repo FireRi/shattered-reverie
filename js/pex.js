@@ -33,7 +33,7 @@ function*haiS(b){
       b.ring(u.x,u.y,DN(6),DV(2.6),rnd(360),'ball:blue',{r:4});
       return false;}return true;}});
    yield 26;
-   yield*b.mv(clamp(PL.x+rnd(-90,90),60,W-60),clamp(PL.y-160,70,190),12);
+   yield*b.mv(clamp(targetPlayer().x+rnd(-90,90),60,W-60),clamp(targetPlayer().y-160,70,190),12);
    b.ring(b.x(),b.y(),DN(14),DV(4),b.aim(),'ball:blue',{r:5});
    screenFlash(.35,'#88f');
   }
@@ -49,7 +49,7 @@ function*yagoN1(b){
   if(k%80===52){addText(b.x(),b.y()-34,'*click*','#aaa',13,30);}
   if(k%80===78)b.ring(b.x(),b.y(),DN(12),DV(3),k*9,'ball:gray');
   if(k%150===96){
-   const gap=clamp(PL.x+rnd(-46,46),36,W-36);
+   const gap=clamp(targetPlayer().x+rnd(-46,46),36,W-36);
    addText(gap,26,'brush','#fa0',10,40);
    for(let x=10;x<W;x+=20){
     if(Math.abs(x-gap)<38)continue;
@@ -270,7 +270,7 @@ function*tenS(b){
   if(ct===0){
    tag={};
    const sides=['top','bottom','left','right'],fw=250,fh=190;
-   fr={cx:clamp(PL.x,fw/2+12,W-fw/2-12),cy:clamp(PL.y,fh/2+12,H-fh/2-12),w:fw,h:fh,open:sides[irnd(0,3)],ink:false};
+   fr={cx:clamp(targetPlayer().x,fw/2+12,W-fw/2-12),cy:clamp(targetPlayer().y,fh/2+12,H-fh/2-12),w:fw,h:fh,open:sides[irnd(0,3)],ink:false};
    const {cx,cy,w,h,open}=fr;
    const x0=cx-w/2,x1=cx+w/2,y0=cy-h/2,y1=cy+h/2;
    const wall=side=>{
@@ -433,7 +433,7 @@ function*suzN1(b){
  const past=[];
  while(k<330){
   if(k%6===0){
-   past.push(clamp(PL.x,20,W-20));
+   past.push(clamp(targetPlayer().x,20,W-20));
    if(past.length>20)past.shift();
   }
   if(k%48===0){

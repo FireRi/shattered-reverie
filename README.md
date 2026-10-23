@@ -92,8 +92,8 @@ The foundation layer. Contains everything that must exist before any content:
 | Player shots | `pUpdate()` tests the boss first, then every mob; dead homing targets retarget |
 | Audio system (`audio.js`) | Web Audio context management, graceful no-audio fallback, SFX synthesis, sample-buffer playback, volume buses |
 | Music engine (`music.js`) | Stage palettes + per-boss themes, 36-bar form with intro/verse/chorus/bridge/climax/outro, loop variation, spell-card phases |
-| Replay (`replay.js`) | Input mask + deterministic RNG log, dialogue snapshot, local save, JSON export/import, playback state |
-| Player (`player.js`) | Movement, shooting, options, graze, flash bomb, spell, trance, deathbomb |
+| Replay (`replay.js`) | Input mask + deterministic RNG log, optional 2P input mask, dialogue snapshot, local save, JSON export/import, playback state |
+| Player (`player.js`) | P1/P2 state, movement, shooting, options, graze, flash bomb, spell, trance, deathbomb |
 | Boss framework (`boss.js`) | State machine (enter→dialog→fight→rest), attack lifecycle, damage rates |
 | Item system | Spawning, magnet collection, floor expiry (P/B/L/S/K/O — O feeds the OD meter) |
 | Laser system | Telegraphed straight-line hazards with warm-up/active/fade states |
@@ -104,6 +104,8 @@ The foundation layer. Contains everything that must exist before any content:
 Gamepad API bridge, loaded immediately after `engine.js`. It writes into
 separate `padKeys` / `padEdge` layers that `down()` and `hitK()` merge with the
 keyboard, so a controller can be used alongside the keyboard or DOM touch pad.
+In local co-op a second connected pad writes `pad2Keys` / `pad2Edge` and drives
+P2; the first connected pad stays on P1.
 
 | Area | Behavior |
 |------|----------|
@@ -134,7 +136,7 @@ the full game state. Visual-only randomness uses `vrnd` and is excluded.
 
 | Area | Behavior |
 |------|----------|
-| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges |
+| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask |
 | Dialogues | The four lines that appeared during the attempt are stored with the replay, so shared files keep their banter |
 | Save | `lasr_replay` stores the last completed or failed single-credit attempt (4.2 MB cap) |
 | Playback | Reconstructs the route, difficulty, mode flags, auto-fire state, and deterministic RNG; pausing is allowed but restart is blocked |
@@ -486,10 +488,24 @@ active and can be used to reach Settings if a pad is not detected.
 | R | Play / game over | Pause at Restart / retry the stage |
 | S / H | Title | Settings / help |
 | V | Title | Open Replay |
-| A | Any except playback | Toggle auto-fire |
+| 2 | Title | Toggle local co-op |
+| A | Any except playback | Toggle auto-fire (solo; P2 movement in co-op) |
 | F | Any | Toggle the FPS readout |
 | M | Any | Mute all audio |
 | `-` / `+` | Any | Lower / raise music volume |
+
+### 3.9 Local Co-op
+
+Local co-op is toggled on the title screen with `2` (or the touch `2P` button)
+and persists in `lasr_settings`. It is disabled for Story and demo runs. P2
+uses `WASD` to move, `J` to shoot, `K` for the flash bomb, `L` for a spell,
+and `I` to focus; a second connected pad drives P2 when active. Each player
+has separate lives, spells, power, graze, flash meter, and deathbomb state,
+while score, overdrive, and the route are shared. Items target the nearest
+living player, boss aim targets the nearest living player, co-op boss HP is
+`1.8x`, and the run ends only when both players are down. A route clear can
+revive a downed player when the route bonus grants a life. Replays record P2
+input as an optional `p2inputs` stream and restore it during playback.
 
 ---
 
@@ -816,6 +832,7 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-flow-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\music-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"; Remove-Item Env:TOUCH
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\coop-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
 ```
 
@@ -1003,7 +1020,7 @@ All sprite usage has vector fallbacks for headless testing.
   not a full multi-credit session. The playback HUD is frame progress only:
   there is no seek/rewind, timeline scrubbing, live ghost overlay, or state
   serialization. Sharing is asynchronous JSON export/import, not real-time
-  netplay.
+  netplay. Local 2P co-op is supported; online co-op is not implemented.
 - **Fixed 4:3 playfield**: The simulation remains 640×480 and is scaled
   uniformly. Widescreen cabinets add side telemetry in the gutters rather than
   expanding the playfield, so native 16:9 gameplay is intentionally unsupported.
