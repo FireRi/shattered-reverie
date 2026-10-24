@@ -31,3 +31,7 @@ node_modules/
 
 # Large game rars (should never be committed)
 *.rar
+
+# Cloudflare Wrangler local state
+.wrangler/
+.dev.vars

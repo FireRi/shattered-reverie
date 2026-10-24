@@ -5,7 +5,9 @@
   "description": "Room-code WebSocket relay for Shattered Reverie online co-op",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev:cf": "npx wrangler dev",
+    "deploy:cf": "npx wrangler deploy"
   },
   "engines": {
     "node": ">=20"

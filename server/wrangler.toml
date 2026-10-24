@@ -1,0 +1,14 @@
+name = "shattered-reverie-relay"
+main = "worker.mjs"
+compatibility_date = "2026-10-01"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomDO"]
+
+[vars]
+ALLOWED_ORIGINS = "https://shattered-reverie.vercel.app,http://localhost:8000,http://127.0.0.1:8000"

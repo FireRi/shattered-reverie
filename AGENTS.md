@@ -10,7 +10,7 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
 - **Last feature commit:** `a721736 Add local two-player co-op` (pushed); prior replay/performance work `5efd057`, controller work `b838466`, cabinet/danmaku work `25d59e0`.
-- **Working tree (uncommitted):** room-code online co-op (deterministic lockstep, host=P1/guest=P2) plus `js/net.js`, `js/netconfig.js`, `js/dmath.js`, and the `server/` relay. Standard/1CC only; Story and AI dialogue off online; online runs save a v3 replay but write no high score. Needs the relay running and `?server=`/`NET_URL` set.
+- **Working tree:** room-code online co-op (deterministic lockstep, host=P1/guest=P2) plus `js/net.js`, `js/netconfig.js`, `js/dmath.js`, and the `server/` relays. Standard/1CC only; Story and AI dialogue off online; online runs save a v3 replay but write no high score. Relay backends: Node `ws` (`server/index.js`, local/self-host) and Cloudflare Worker + SQLite Durable Object (`server/worker.mjs` + `wrangler.toml`, free/no-card production). The host now generates the 5-char room code client-side; both clients connect to `/ws?code=XXXXX&role=host|guest`. Needs the relay running and `?server=`/`NET_URL` set.
 - **Previous feature:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay.
 - **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
@@ -18,12 +18,12 @@ This file is the persistent operating context for coding sessions. Keep it curre
 
 Serve the directory with any static server so `fetch()` assets and `/api/generate-dialog` behave normally. Opening `index.html` directly via `file://` works for most play, but AI dialogue fetch can fail gracefully.
 
-Online co-op needs the relay running: `cd server; npm install; npm start` (listens on `8787`, WebSockets at `/ws`, health at `/health`). Open the game with `?server=ws://localhost:8787/ws`, or set `window.LASR_NET_URL`/`NET_URL`. In production set `ALLOWED_ORIGINS` and point the client at the deployed `wss://.../ws`.
+Online co-op needs the relay running. Local Node: `cd server; npm install; npm start` (listens on `8787`, WebSockets at `/ws`, health at `/health`). Cloudflare: `cd server; npx wrangler login; npx wrangler deploy` (free, no card; prints `https://<name>.<subdomain>.workers.dev`), or `npm run dev:cf` for a local Worker + Durable Object. Open the game with `?server=ws://localhost:8787/ws` (or the `workers.dev` `wss://.../ws`), or set `window.LASR_NET_URL`/`NET_URL`. Set `ALLOWED_ORIGINS` in production. To test the Cloudflare backend end to end, run `wrangler dev` then `$env:RELAY_URL='ws://127.0.0.1:8788/ws'; node "...net-live-check.js"`.
 
 Useful checks on Windows PowerShell:
 
 ```powershell
-Get-ChildItem js -Filter *.js | ForEach-Object { node --check $_.FullName }; node --check api/generate-dialog.js
+Get-ChildItem js -Filter *.js | ForEach-Object { node --check $_.FullName }; node --check api/generate-dialog.js; node --check server/index.js; node --check server/worker.mjs
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\all-boss-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\smoke.js"; Remove-Item Env:TOUCH
@@ -179,7 +179,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 
 In progress (online co-op, uncommitted):
 
-- Added `js/dmath.js` (deterministic `sin`/`cos`/`atan2`/`sqrt`/`hypot`, `enable`/`disable`, enabled only online and for seeded v3 replay), `js/netconfig.js`, `js/net.js`, and the `server/` Node `ws` relay (`server/index.js`, `package.json`, `Dockerfile`).
+- Added `js/dmath.js` (deterministic `sin`/`cos`/`atan2`/`sqrt`/`hypot`, `enable`/`disable`, enabled only online and for seeded v3 replay), `js/netconfig.js`, `js/net.js`, the `server/` Node `ws` relay (`server/index.js`, `package.json`, `Dockerfile`), and the Cloudflare Worker + Durable Object adapter (`server/worker.mjs`, `server/wrangler.toml`). The host generates the 5-char code client-side and connects to `/ws?code=XXXXX&role=host|guest` (both backends); `busy` triggers a retry with a new code.
 - `js/engine.js` adds `NET_KEYS`/`NET_BITS` and routes `down`/`hitK`/`downP`/`hitP` through `Net` while `Net.capturing`; `KEY.O` added.
 - `js/main.js` adds `G.simFrame`/`G.simBeat` (gameplay tick separate from visual `G.frame`), gates `G.freeze` to play, adds the online screen/flow, `startOnlineRun`, `onlineCommitConfig`, `returnToOnlineLobby`, and online results handling; `js/player.js`/`js/p4.js` use the sim tick and Net analog/focus; `js/replay.js` is format v3 with `seed`/`online`/`dmath`; `js/boot.js` maps guest touch to P2; `js/cabinet.js` adds the `ONLINE`/ping flags; `index.html` loads the new scripts and adds the hidden room-code input.
 - Verified with `net-check.js` (`NET CHECK PASSED`), `server-check.js` (`SERVER CHECK PASSED`), `online-shot.js` (`ONLINE SHOT PASSED`), and the desktop/touch smoke, replay, co-op, controller, all-boss, xeno, and music harnesses.

@@ -56,7 +56,7 @@ index.html
   │   └── boot.js        Viewport fitting + DOM touch pad + canvas tap zones
   ├── api/
   │   └── generate-dialog.js
-  ├── server/            Optional Node `ws` room-code relay (online co-op)
+  ├── server/            Online co-op relay: Node `ws` (local/self-host) + Cloudflare Worker
   ├── assets/sfx/        Sound effects
   ├── fonts/            UI fonts + licenses
   └── gfx/              Sprite and background art
@@ -175,6 +175,7 @@ alphabet, and relay URL (override with `?server=ws://host/ws` or
 
 | Area | Behavior |
 |------|----------|
+| Room codes | The host generates a 5-character code locally and connects with `?code=XXXXX&role=host`; the guest joins the same code as `role=guest`. A `busy` reply makes the host retry with a new code |
 | Roles | Host is P1, guest is P2; the guest may use arrow keys or WASD (P1+P2 layers are merged) |
 | Delay | `D = clamp(ceil(RTT / 16.667) + 3, 4, 12)`, fixed for the run and shown as the lobby ping |
 | Inputs | Each client sends its own 13-byte input packet; tick `N` runs only when both inputs exist, otherwise the client shows a stall and stops accumulating frames |
@@ -185,11 +186,16 @@ alphabet, and relay URL (override with `?server=ws://host/ws` or
 
 ### server/
 
-Optional Node `ws` relay used for online co-op. It stores rooms in memory,
-relays control and binary messages between two sockets, and does not simulate
-the game. 5-character codes use `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`; rooms expire
-after 15 minutes idle. Deploy it anywhere that runs Node and supports
-WebSockets (the Northflank free Sandbox works well). See “Running the relay”.
+Two interchangeable relays for the same client protocol; neither simulates the
+game, they only relay control and binary messages between the two sockets.
+
+| File | Backend | Use |
+|------|---------|-----|
+| `index.js` | Node `ws` | Local development and any self-host/VPS. Rooms are held in memory and expire after 15 minutes idle |
+| `worker.mjs` + `wrangler.toml` | Cloudflare Worker + Durable Object | Zero-cost, no-card production hosting. One SQLite-backed DO per room code, routed by name, using the WebSocket Hibernation API; room state is persisted so it survives hibernation |
+
+Both accept `/ws?code=XXXXX&role=host|guest` and expose `/health`. Codes use
+`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. See “Running the relay” for deploy steps.
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -877,6 +883,7 @@ node --check js/cabinet.js
 node --check js/boot.js
 node --check api/generate-dialog.js
 node --check server/index.js
+node --check server/worker.mjs
 ```
 
 Optional local harnesses (kept outside the repo) also exercise runtime behavior:
@@ -899,12 +906,18 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 
 `net-check.js` runs the deterministic math shim, host/guest input mapping,
 stall detection, v3 online replay validation, and a two-pass seeded online run
-that must produce matching state hashes. `server-check.js` starts the relay and
-exercises create/join/config/ready/start, binary relay, malformed-packet
-rejection, ping/pong, and disconnect cleanup. `online-shot.js` captures the
-Online menu/join/lobby/error screens in Edge.
+that must produce matching state hashes. `server-check.js` starts the Node relay
+and exercises room routing, busy/no-room/full rejection, config/ready/start,
+binary relay, malformed-packet rejection, ping/pong, and disconnect cleanup.
+`net-live-check.js` runs two VM game instances through a live relay in lockstep
+and compares a state hash at a common tick; set `RELAY_URL` to point it at
+`wrangler dev` (e.g. `$env:RELAY_URL='ws://127.0.0.1:8788/ws'`) to validate the
+Cloudflare backend. `online-shot.js` captures the Online menu/join/lobby/error
+screens in Edge.
 
 ### Running the relay
+
+**Local (Node):**
 
 ```powershell
 cd server
@@ -912,12 +925,26 @@ npm install
 npm start
 ```
 
-The relay listens on `http://localhost:8787` (`/health`) with WebSockets at
-`/ws`. Serve the game, then open it with `?server=ws://localhost:8787/ws` (or
-set `window.LASR_NET_URL`/`NET_URL`). In production set `ALLOWED_ORIGINS` (a
-comma-separated list, or `*`) and point the client at the deployed relay, e.g.
-`?server=wss://your-relay.code.run/ws`. The `server/Dockerfile` runs on the
-Northflank free Sandbox; `PORT` is supplied by the platform.
+Listens on `http://localhost:8787` (`/health`) with WebSockets at `/ws`. Serve
+the game, then open it with `?server=ws://localhost:8787/ws` (or set
+`window.LASR_NET_URL`/`NET_URL`). Set `ALLOWED_ORIGINS` (comma-separated, or `*`)
+to restrict origins.
+
+**Production (Cloudflare, free, no card):**
+
+```powershell
+cd server
+npx wrangler login      # browser OAuth
+npx wrangler deploy     # prints https://<name>.<subdomain>.workers.dev
+```
+
+Then point the client at `?server=wss://<name>.<subdomain>.workers.dev/ws` (or
+bake it into `NET_URL`). Set `ALLOWED_ORIGINS` in `wrangler.toml` to the game's
+origin when done testing. Free-plan limits: 100k requests/day (WebSocket
+messages count at 20:1), 13k GB-s/day, 5M row reads / 100k writes per day.
+
+The `server/Dockerfile` (Node image) is kept as a self-host option and runs on
+the Northflank free Sandbox; `PORT` is supplied by the platform.
 
 `controller-check.js` mocks a standard gamepad and verifies held/edge mapping,
 title/menu bindings, stick movement, enable/disable, remap capture, bind

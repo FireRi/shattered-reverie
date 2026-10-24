@@ -1,11 +1,9 @@
 "use strict";
 const http=require("http");
-const crypto=require("crypto");
 const {WebSocketServer}=require("ws");
 
 const PROTO=1;
 const PORT=parseInt(process.env.PORT||"8787",10);
-const ALPHABET="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_RE=/^[A-HJ-NP-Z2-9]{5}$/;
 const ROOM_TTL_MS=15*60*1000;
 const MAX_PAYLOAD=2048;
@@ -20,16 +18,6 @@ function originAllowed(origin){
 }
 
 const rooms=new Map();
-
-function makeCode(){
- for(let attempt=0;attempt<64;attempt++){
-  let code="";
-  const buf=crypto.randomBytes(5);
-  for(let i=0;i<5;i++)code+=ALPHABET[buf[i]%ALPHABET.length];
-  if(!rooms.has(code))return code;
- }
- return null;
-}
 
 function validateConfig(c){
  if(!c||typeof c!=="object")return null;
@@ -96,31 +84,13 @@ function handleControl(ws,msg){
  const t=msg&&msg.t;
  switch(t){
   case "hello":{
-   send(ws,{t:"hello",proto:PROTO});
-   break;
-  }
-  case "create":{
-   if(ws.room){send(ws,{t:"error",code:"already"});break;}
-   if(rooms.size>=MAX_ROOMS){send(ws,{t:"error",code:"busy"});break;}
-   const code=makeCode();
-   if(!code){send(ws,{t:"error",code:"busy"});break;}
-   const room={code,host:ws,guest:null,config:null,ready:{host:false,guest:false},created:Date.now(),last:Date.now()};
-   rooms.set(code,room);
-   ws.room=room;ws.role="host";
-   send(ws,{t:"created",code,role:"host"});
-   break;
-  }
-  case "join":{
-   if(ws.room){send(ws,{t:"error",code:"already"});break;}
-   const code=String(msg.code||"").toUpperCase();
-   if(!CODE_RE.test(code)){send(ws,{t:"error",code:"bad-code"});break;}
-   const room=rooms.get(code);
-   if(!room){send(ws,{t:"error",code:"no-room"});break;}
-   if(room.guest||!room.host){send(ws,{t:"error",code:"full"});break;}
-   room.guest=ws;ws.room=room;ws.role="guest";room.last=Date.now();
-   send(ws,{t:"joined",code,role:"guest"});
-   if(room.config)send(ws,{t:"config",config:room.config});
-   send(room.host,{t:"peer",role:"guest"});
+   if(ws.rejected){send(ws,ws.rejected);try{ws.close(1008,ws.rejected.code);}catch(e){}break;}
+   if(ws.role==="host"&&ws.room)send(ws,{t:"created",code:ws.room.code,role:"host"});
+   else if(ws.role==="guest"&&ws.room){
+    send(ws,{t:"joined",code:ws.room.code,role:"guest"});
+    if(ws.room.config)send(ws,{t:"config",config:ws.room.config});
+    if(ws.room.host)send(ws.room.host,{t:"peer",role:"guest"});
+   }
    break;
   }
   case "config":{
@@ -218,12 +188,36 @@ server.on("upgrade",(req,socket,head)=>{
  wss.handleUpgrade(req,socket,head,ws=>wss.emit("connection",ws,req));
 });
 
-wss.on("connection",ws=>{
+wss.on("connection",(ws,req)=>{
  ws.isAlive=true;
  ws.room=null;
  ws.role=null;
+ ws.rejected=null;
  ws.msgCount=0;
  ws.msgWindow=Date.now();
+ let code="",role="";
+ try{
+  const u=new URL(req.url||"/","http://localhost");
+  code=(u.searchParams.get("code")||"").toUpperCase();
+  role=u.searchParams.get("role")||"";
+ }catch(e){}
+ if(!CODE_RE.test(code)||(role!=="host"&&role!=="guest")){
+  ws.rejected={t:"error",code:"bad-code"};
+ }else if(role==="host"){
+  const existing=rooms.get(code);
+  if(existing&&existing.host&&existing.host.readyState===1)ws.rejected={t:"error",code:"busy"};
+  else if(!existing&&rooms.size>=MAX_ROOMS)ws.rejected={t:"error",code:"busy"};
+  else{
+   const room={code,host:ws,guest:(existing&&existing.guest&&existing.guest.readyState===1)?existing.guest:null,
+    config:existing?existing.config:null,ready:{host:false,guest:false},created:Date.now(),last:Date.now()};
+   rooms.set(code,room);ws.room=room;ws.role="host";
+  }
+ }else{
+  const room=rooms.get(code);
+  if(!room||!room.host||room.host.readyState!==1)ws.rejected={t:"error",code:"no-room"};
+  else if(room.guest&&room.guest.readyState===1)ws.rejected={t:"error",code:"full"};
+  else{room.guest=ws;ws.room=room;ws.role="guest";room.last=Date.now();}
+ }
  ws.on("pong",()=>{ws.isAlive=true;});
  ws.on("message",(data,isBinary)=>{
   const now=Date.now();

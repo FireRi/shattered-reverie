@@ -9,7 +9,7 @@ const Net={
  ax:0,ay:0,p2ax:0,p2ay:0,analog:false,p2analog:false,focus:false,p2focus:false,
  guestFocus:false,
  localBuf:{},remoteBuf:{},myChecks:{},remoteChecks:{},
- rtt:0,pingT:0,lastPing:0,pendingAction:null,
+ rtt:0,pingT:0,lastPing:0,createAttempts:0,retrying:false,fatal:false,
  paused:false,pauseAt:-1,stalling:false,
  _hb:0,
 
@@ -17,27 +17,37 @@ const Net={
  sendJson(o){if(this.wsOpen())try{this.ws.send(JSON.stringify(o));}catch(e){}},
  wsSend(d){if(this.wsOpen())try{this.ws.send(d);}catch(e){}},
 
- connect(){
+ makeCode(){
+  let s='';
+  try{const a=new Uint8Array(5);crypto.getRandomValues(a);for(let i=0;i<5;i++)s+=NET_ALPHABET[a[i]%NET_ALPHABET.length];}
+  catch(e){for(let i=0;i<5;i++)s+=NET_ALPHABET[Math.floor(Math.random()*NET_ALPHABET.length)];}
+  return s;
+ },
+ roomUrl(code,role){const sep=NET_URL.indexOf('?')>=0?'&':'?';return NET_URL+sep+'code='+encodeURIComponent(code)+'&role='+role;},
+ connect(code,role){
   if(this.wsOpen()||(this.ws&&this.ws.readyState===0))return;
   if(!NET_URL){this.status='error';this.error='RELAY NOT CONFIGURED';this.msg='SET NET_URL OR USE ?server=';return;}
   this.status='connecting';this.error='';
   let ws;
-  try{ws=new WebSocket(NET_URL);}catch(e){this.status='error';this.error='RELAY OFFLINE';return;}
+  try{ws=new WebSocket(this.roomUrl(code,role));}catch(e){this.status='error';this.error='RELAY OFFLINE';return;}
   ws.binaryType='arraybuffer';
   this.ws=ws;
-  ws.onopen=()=>{this.status='idle';this.sendJson({t:'hello',proto:NET_PROTO});if(this.pendingAction){const a=this.pendingAction;this.pendingAction=null;a();}};
+  ws.onopen=()=>{this.status='idle';this.sendJson({t:'hello',proto:NET_PROTO});};
   ws.onmessage=e=>this.onMessage(e);
   ws.onclose=()=>this.onClose();
   ws.onerror=()=>{this.error='RELAY OFFLINE';};
  },
 
- createRoom(){this.connect();this.pendingAction=()=>this.sendJson({t:'create'});if(this.wsOpen()){this.pendingAction=null;this.sendJson({t:'create'});}},
+ createRoom(){
+  this.role='host';this.isHost=true;this.isGuest=false;
+  this.code=this.makeCode();this.createAttempts=0;
+  this.connect(this.code,'host');
+ },
  joinRoom(code){
   const c=String(code||'').toUpperCase();
   if(!NET_CODE_RE.test(c)){this.error='ENTER A 5-CHARACTER CODE';return;}
-  this.connect();
-  const doJoin=()=>this.sendJson({t:'join',code:c});
-  if(this.wsOpen())doJoin();else this.pendingAction=doJoin;
+  this.role='guest';this.isGuest=true;this.isHost=false;this.code=c;
+  this.connect(c,'guest');
  },
  leave(){
   this.leaving=true;
@@ -51,18 +61,20 @@ const Net={
   this.role=null;this.isHost=false;this.isGuest=false;this.code=null;this.config=null;
   this.ready={host:false,guest:false};this.localReady=false;
   this.localBuf={};this.remoteBuf={};this.myChecks={};this.remoteChecks={};
-  this.guestFocus=false;this.tick=0;this.sendSeq=0;
+  this.guestFocus=false;this.tick=0;this.sendSeq=0;this.createAttempts=0;this.retrying=false;this.fatal=false;
   if(typeof DMath!=='undefined')DMath.disable();
   if(typeof G!=='undefined'&&G){G.online=false;G.aiDialogue=settings.aiDialogue!==false;}
  },
 
  onClose(){
   this.ws=null;
+  if(this.retrying)return;
   if(this.leaving){this.status='idle';this.active=false;return;}
   if(this.active){this.abortRun('CONNECTION LOST');return;}
   if(this.role){
    this.role=null;this.isHost=false;this.isGuest=false;this.active=false;this.paused=false;
-   this.status='error';this.error='CONNECTION LOST';
+   this.status='error';
+   if(this.fatal)this.fatal=false;else this.error='CONNECTION LOST';
    if(typeof G!=='undefined'&&G){G.online=false;G.screen='online';G.onlineMode='error';}
   }else this.status='idle';
  },
@@ -135,7 +147,16 @@ const Net={
     this.status='error';this.error='ROOM CLOSED';
     break;
    case 'error':
-    this.error=({already:'ALREADY IN A ROOM',busy:'RELAY BUSY',badcode:'INVALID CODE','bad-code':'INVALID CODE','no-room':'ROOM NOT FOUND',full:'ROOM FULL','host-only':'HOST ONLY','bad-config':'BAD CONFIG'})[m.code]||'RELAY ERROR';
+    if(m.code==='busy'&&this.role==='host'&&this.createAttempts<8){
+     this.createAttempts++;this.retrying=true;this.error='';this.status='connecting';
+     try{if(this.ws)this.ws.close();}catch(e){}
+     this.ws=null;this.code=this.makeCode();
+     const self=this;
+     setTimeout(()=>{self.retrying=false;self.connect(self.code,'host');},60);
+     break;
+    }
+    if(m.code==='no-room'||m.code==='full'||m.code==='bad-code'||m.code==='proto')this.fatal=true;
+    this.error=({already:'ALREADY IN A ROOM',busy:'RELAY BUSY',badcode:'INVALID CODE','bad-code':'INVALID CODE','no-room':'ROOM NOT FOUND',full:'ROOM FULL','host-only':'HOST ONLY','bad-config':'BAD CONFIG',proto:'PROTOCOL MISMATCH'})[m.code]||'RELAY ERROR';
     this.status=this.role?'lobby':'error';
     break;
   }
