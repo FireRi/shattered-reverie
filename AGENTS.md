@@ -10,12 +10,15 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
 - **Last feature commit:** `a721736 Add local two-player co-op` (pushed); prior replay/performance work `5efd057`, controller work `b838466`, cabinet/danmaku work `25d59e0`.
-- **Latest feature:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay; touches `js/engine.js`, `js/player.js`, `js/main.js`, `js/boss.js`, `js/render.js`, `js/replay.js`, `js/gamepad.js`, `js/cabinet.js`, and the `patterns.js`/`p4-6`/`pex*` target aiming helpers.
+- **Working tree (uncommitted):** room-code online co-op (deterministic lockstep, host=P1/guest=P2) plus `js/net.js`, `js/netconfig.js`, `js/dmath.js`, and the `server/` relay. Standard/1CC only; Story and AI dialogue off online; online runs save a v3 replay but write no high score. Needs the relay running and `?server=`/`NET_URL` set.
+- **Previous feature:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay.
 - **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
 ## Run And Verify
 
 Serve the directory with any static server so `fetch()` assets and `/api/generate-dialog` behave normally. Opening `index.html` directly via `file://` works for most play, but AI dialogue fetch can fail gracefully.
+
+Online co-op needs the relay running: `cd server; npm install; npm start` (listens on `8787`, WebSockets at `/ws`, health at `/health`). Open the game with `?server=ws://localhost:8787/ws`, or set `window.LASR_NET_URL`/`NET_URL`. In production set `ALLOWED_ORIGINS` and point the client at the deployed `wss://.../ws`.
 
 Useful checks on Windows PowerShell:
 
@@ -32,6 +35,10 @@ $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-chec
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\coop-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\padcheck.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-live-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\cab-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-shot.js"
@@ -46,6 +53,10 @@ Expected current results:
 
 - Desktop smoke: `25/25 PASSED`
 - Touch smoke: `37/37 PASSED`
+- `net-check.js`: `NET CHECK PASSED` for the DMath shim, host/guest input mapping, stall detection, v3 online replay validation, online screen drawing, and a two-pass seeded online run with matching state hashes.
+- `net-live-check.js`: `NET LIVE PASSED` — two VM game instances over the real relay create/join/start and advance in lockstep with matching state hashes.
+- `server-check.js`: `SERVER CHECK PASSED` for relay health, create/join, config validation, ready/start, binary relay, malformed-packet rejection, ping/pong, and disconnect cleanup.
+- `online-shot.js`: `ONLINE SHOT PASSED` at 1280x960 with no page errors; captures Online menu/join/lobby/wait/error and the title button.
 - `controller-check.js`: desktop and touch `17/17 PASSED` with a mocked standard pad; covers held/edge keys, non-standard axis pairs, context mapping, enable/disable, remap capture, bind suppression, hotplug cleanup, persistence, and controller-screen drawing.
 - `coop-check.js`: `CO-OP PASSED` for title toggle/persistence, P2 activation/spawn, isolated movement/shooting, nearest-player items, one-player-down continuation, both-down game over, route revive, 2P replay record/playback, second-pad ownership, and co-op HUD drawing.
 - `replay-check.js`: `REPLAY PASSED` after a 5,000-frame deterministic record/playback with zero RNG starvation.
@@ -57,7 +68,7 @@ Expected current results:
 - `api-check.mjs` uses a mocked Groq response; it validates JSON parsing, alternating `b/p/b/p` order, and the 70B model request. `api-fallback-check.mjs` verifies the 8B JSON fallback.
 - `client-ai-check.js` verifies browser-side cache, entry-time application, and the local AI-off fallback.
 - `shot.js` covers 1280x960 4:3 fallback, landscape touch, and portrait touch; `cab-shot.js` covers 1920x1080 and 1366x768 cabinet mode; `xeno-shot.js` covers the dice non-spell, Double or Nothing cutin/pattern, and All-In hand.
-- Screenshot harnesses use Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, CDP port `9223` (`controller-shot.js` uses `9224`), and Node v24+ built-in WebSocket.
+- Screenshot harnesses use Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`, CDP port `9223` (`controller-shot.js` uses `9224`, `online-shot.js` uses `9225`), and Node v24+ built-in WebSocket.
 
 Screenshots are written to `C:\Users\Gabby\AppData\Local\Temp\opencode\`:
 
@@ -68,6 +79,7 @@ Screenshots are written to `C:\Users\Gabby\AppData\Local\Temp\opencode\`:
 - `xeno-*.png`: dice non-spell, Double or Nothing cutin/pattern, and All-In hand
 - `pad-*.png`: connected-pad title prompt, Settings controller row, desktop/touch Controller screen, bind-listening overlay, and portrait layout
 - `coop-play*.png` / `coop-pause.png`: 2P player sprites, compact two-row status rail, 2P cabinet/score flag, and pause layout
+- `online-*.png`: Online menu/join/lobby/wait/error screens and the title online button
 - `rehaul-*.png` / `rehaulN-*.png`: one spell and one non-spell per boss at 960x720; `rehaul-sheet-*.jpg` are contact sheets
 
 The smoke/pad/screenshot harnesses are temporary, not committed. Add a portable `tools/` harness only if it becomes necessary.
@@ -77,9 +89,12 @@ The smoke/pad/screenshot harnesses are temporary, not committed. Add a portable 
 Load order matters. Do not reorder `index.html` scripts.
 
 ```
-js/engine.js     constants, IS_TOUCH, input, pools, shared state, SimRng, TouchUI
+js/engine.js     constants, IS_TOUCH, input, pools, shared state, SimRng, TouchUI, NET_BITS
+js/dmath.js      deterministic sin/cos/atan2/sqrt/hypot shim for online/seeded replay
 js/gamepad.js    Gamepad API bridge, padKeys/padEdge, remap + persistence
-js/replay.js     deterministic input/RNG replay, save, JSON import/export
+js/replay.js     deterministic input/RNG replay, save, JSON import/export, v3 seed/online
+js/netconfig.js  NET_PROTO, NET_URL, room alphabet
+js/net.js        room-code online co-op lockstep client (input relay, checksums, pause barrier)
 js/audio.js      Web Audio buses, SFX synthesis, volume persistence
 js/music.js      procedural stage/boss score generator
 js/player.js     player states (PL/P2/players), shots, bombs, graze, movement
@@ -120,8 +135,9 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 - Story mode uses waves and three credits; 1CC and Story 1CC use one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
 - Save keys include `lasr_hi`, `lasr_hi_0`–`lasr_hi_2` (per-difficulty), `lasr_diff` (0–2), `lasr_sel` (stage flags), `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, `lasr_gamepad`, and `lasr_replay`.
 - Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
-- Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.
+- Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, O online co-op, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.
 - Co-op P2 keyboard: WASD move, J shot, K flash, L spell, I focus. P2 keys are ignored while solo so P1 hotkeys keep working; while co-op is active P2 consumes those keys before P1.
+- Online co-op is a separate `G.screen='online'` flow (`openOnline`, `updateOnline`, `drawOnline`, `startOnlineRun`, `onlineCommitConfig`, `returnToOnlineLobby`). Rooms are 5-character codes; host=P1/guest=P2; the guest may use arrows or WASD. `Net` lives in `js/net.js` and loads after `js/replay.js` and before `js/main.js`; `NET_KEYS`/`NET_BITS` live in `js/engine.js`. Online enables `DMath` and disables AI dialogue; Standard/1CC only, no online high scores.
 - Controller: A shot/confirm, B flash/cancel, X spell, LB focus, Start pause; D-pad/stick navigate. Title Start/Y open Settings, View opens Help. In co-op the first pad drives P1 and the second pad drives P2. Settings → Controller handles enable, rebind, reset, and persistence.
 
 ## UI System
@@ -147,7 +163,7 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - Desktop cabinet: requires `(w-canvasW)/2 >= 150`, non-touch, and landscape; 1280x960 stays on the compact HUD. `layoutCabinet()` positions panels using the actual viewport offsets and canvas height.
 - Portrait touch: pad uses bottom-deck mode; "Rotate your device" overlay is skippable via "Play in portrait". The game remains a 4:3 letterboxed canvas.
 - Safe-area insets are read from CSS custom properties `--sal/--sar/--sat/--sab` through `safeInset()`.
-- The pad hides on `help`, `controller`, `gameover`, `result`, and `demo`; it is visible on `title`, `diff`, `sel`, `pause`, `play`, and `settings`. The Controller screen uses canvas `TouchUI` rows instead.
+- The pad hides on `help`, `controller`, `online`, `gameover`, `result`, and `demo`; it is visible on `title`, `diff`, `sel`, `pause`, `play`, and `settings`. The Controller screen uses canvas `TouchUI` rows instead.
 - On touch, menus use large tile/row hit zones via `TouchUI.add()`; do not rely only on visual text bounds.
 
 ## Git And Working Tree Rules
@@ -160,6 +176,14 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 - `README.md` is the maintained technical deep dive. Keep this file focused on operational context and current state.
 
 ## Current Work State (2026-10-23)
+
+In progress (online co-op, uncommitted):
+
+- Added `js/dmath.js` (deterministic `sin`/`cos`/`atan2`/`sqrt`/`hypot`, `enable`/`disable`, enabled only online and for seeded v3 replay), `js/netconfig.js`, `js/net.js`, and the `server/` Node `ws` relay (`server/index.js`, `package.json`, `Dockerfile`).
+- `js/engine.js` adds `NET_KEYS`/`NET_BITS` and routes `down`/`hitK`/`downP`/`hitP` through `Net` while `Net.capturing`; `KEY.O` added.
+- `js/main.js` adds `G.simFrame`/`G.simBeat` (gameplay tick separate from visual `G.frame`), gates `G.freeze` to play, adds the online screen/flow, `startOnlineRun`, `onlineCommitConfig`, `returnToOnlineLobby`, and online results handling; `js/player.js`/`js/p4.js` use the sim tick and Net analog/focus; `js/replay.js` is format v3 with `seed`/`online`/`dmath`; `js/boot.js` maps guest touch to P2; `js/cabinet.js` adds the `ONLINE`/ping flags; `index.html` loads the new scripts and adds the hidden room-code input.
+- Verified with `net-check.js` (`NET CHECK PASSED`), `server-check.js` (`SERVER CHECK PASSED`), `online-shot.js` (`ONLINE SHOT PASSED`), and the desktop/touch smoke, replay, co-op, controller, all-boss, xeno, and music harnesses.
+- Not yet done: real two-browser playtest, Northflank deploy + `NET_URL`, and any commit.
 
 Completed (local co-op Phase 2, committed `a721736`):
 

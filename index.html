@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="description" content="Shattered Reverie ~ Ballad of the Borderless Sky: an original browser-based vertical danmaku game and Len'en tribute.">
 <meta name="theme-color" content="#05050a">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.groq.com; img-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.groq.com wss: ws://localhost:8787 ws://127.0.0.1:8787; img-src 'self' data:;">
 <title>Shattered Reverie ~ Ballad of the Borderless Sky</title>
 <style>
 @font-face{font-family:'Pixel8';src:url('fonts/PressStart2P-Regular.ttf') format('truetype');font-display:swap}
@@ -186,10 +186,14 @@ body.cab-eligible.cab-live #cabinet{display:block}
  <div id="padBomb" class="padControl">BOMB</div>
  <div id="padFire" class="padControl">FIRE</div>
 </div>
+<input id="roomCode" type="text" maxlength="5" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-hidden="true" style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;">
 <div id="rotate"><div class="ico">&#8635;</div><div class="big">ROTATE YOUR DEVICE</div><small>Landscape gives the biggest play area</small><button id="rotateFull">FULLSCREEN</button><button id="rotateSkip">PLAY IN PORTRAIT</button></div>
 <script src="js/engine.js"></script>
+<script src="js/dmath.js"></script>
 <script src="js/gamepad.js"></script>
 <script src="js/replay.js"></script>
+<script src="js/netconfig.js"></script>
+<script src="js/net.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/music.js"></script>
 <script src="js/player.js"></script>

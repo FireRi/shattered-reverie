@@ -37,7 +37,7 @@ const angTo=(x,y)=>{const p=targetPlayer();return Math.atan2(p.y-y,p.x-x);};
 
 
 const KEY={LEFT:37,RIGHT:39,UP:38,DOWN:40,SHIFT:16,Z:90,X:88,C:67,ESC:27,M:77,ENTER:13,R:82,
- S:83,H:72,V:86,A:65,F:70,TWO:50,MINUS:189,PLUS:187,COMMA:188,PERIOD:190,
+ S:83,H:72,V:86,A:65,F:70,O:79,TWO:50,MINUS:189,PLUS:187,COMMA:188,PERIOD:190,
  NUMPAD_MINUS:109,NUMPAD_PLUS:107,FF_MINUS:173,EQUALS:61};
 const PLAYER_HIT_R=2.6;
 const GRAZE_R=14;
@@ -82,6 +82,7 @@ const keys={},edge={},padKeys={},padEdge={};
 const p2keys={},p2edge={},pad2Keys={},pad2Edge={};
 const P2BIND={87:KEY.UP,83:KEY.DOWN,65:KEY.LEFT,68:KEY.RIGHT,74:KEY.Z,75:KEY.X,76:KEY.C,73:KEY.SHIFT};
 addEventListener('keydown',e=>{
+ if(typeof document!=='undefined'&&document.activeElement&&document.activeElement.id==='roomCode')return;
  const p2k=P2BIND[e.keyCode];
  const p2Active=p2k!==undefined&&typeof players!=='undefined'&&players.length>1;
  if(p2Active){
@@ -103,9 +104,19 @@ addEventListener('keyup',e=>{
  const p2k=P2BIND[e.keyCode];
  if(p2k!==undefined)p2keys[p2k]=false;
 });
-const down=k=>!!keys[k]||!!padKeys[k],hitK=k=>{if(edge[k]||padEdge[k]){edge[k]=false;padEdge[k]=false;return true}return false};
-const downP=(p,k)=>p===P2?(!!p2keys[k]||!!pad2Keys[k]):down(k);
-const hitP=(p,k)=>{if(p!==P2)return hitK(k);if(p2edge[k]||pad2Edge[k]){p2edge[k]=false;pad2Edge[k]=false;return true}return false};
+const NET_KEYS=[KEY.LEFT,KEY.RIGHT,KEY.UP,KEY.DOWN,KEY.SHIFT,KEY.Z,KEY.X,KEY.C];
+const NET_BITS=(()=>{const m={};for(let i=0;i<NET_KEYS.length;i++)m[NET_KEYS[i]]=1<<i;return m;})();
+const netCapturing=()=>typeof Net!=='undefined'&&Net&&Net.capturing;
+const down=k=>{if(netCapturing())return !!(Net.mask&(NET_BITS[k]||0));return !!keys[k]||!!padKeys[k];};
+const hitK=k=>{
+ if(netCapturing()){const b=NET_BITS[k];if(b&&(Net.edge&b)){Net.edge&=~b;return true;}return false;}
+ if(edge[k]||padEdge[k]){edge[k]=false;padEdge[k]=false;return true}return false};
+const downP=(p,k)=>{
+ if(netCapturing()){const m=p===P2?Net.mask2:Net.mask;return !!(m&(NET_BITS[k]||0));}
+ return p===P2?(!!p2keys[k]||!!pad2Keys[k]):down(k);};
+const hitP=(p,k)=>{
+ if(netCapturing()){const b=NET_BITS[k];if(!b)return false;if(p===P2){if(Net.edge2&b){Net.edge2&=~b;return true;}return false;}if(Net.edge&b){Net.edge&=~b;return true;}return false;}
+ if(p!==P2)return hitK(k);if(p2edge[k]||pad2Edge[k]){p2edge[k]=false;pad2Edge[k]=false;return true}return false};
 function clearEdges(){for(const k in edge)edge[k]=false;for(const k in padEdge)padEdge[k]=false;for(const k in p2edge)p2edge[k]=false;for(const k in pad2Edge)pad2Edge[k]=false;}
 function clearP2Input(){for(const k in p2keys)p2keys[k]=false;for(const k in p2edge)p2edge[k]=false;for(const k in pad2Keys)pad2Keys[k]=false;for(const k in pad2Edge)pad2Edge[k]=false;}
 

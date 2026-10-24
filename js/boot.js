@@ -242,11 +242,14 @@ function gamePos(t){
 }
 
 function pressBomb(){
- if(G.screen==='play')edge[KEY.X]=true;
- else edge[KEY.ESC]=true;
+ if(G.screen==='play'){
+  if(typeof Net!=='undefined'&&Net.active&&Net.isGuest){if(typeof p2edge!=='undefined')p2edge[KEY.X]=true;return;}
+  edge[KEY.X]=true;
+ }else edge[KEY.ESC]=true;
 }
 function pressSpell(){
  try{AudioSys.unlock();}catch(err){}
+ if(typeof Net!=='undefined'&&Net.active&&Net.isGuest){if(typeof p2edge!=='undefined')p2edge[KEY.C]=true;return;}
  if(PL.dead){
   if(PL.deathWindow>0)tryDeathbomb();
   return;
@@ -255,12 +258,14 @@ function pressSpell(){
 }
 function pressFocus(){
  if(G.screen!=='play')return;
+ if(typeof Net!=='undefined'&&Net.active&&Net.isGuest){Net.guestFocus=!Net.guestFocus;sfx('cur');return;}
  TouchUI.focus=!TouchUI.focus;
  sfx('cur');
 }
 function pressPause(){
  if(G.screen!=='play'||Gdemo)return;
  TouchUI.resetStick();
+ if(typeof Net!=='undefined'&&Net.active){Net.requestPause();return;}
  G.screen='pause';G.pauseCursor=0;G.pauseConfirm=null;
  sfx('cur');
 }
@@ -306,14 +311,15 @@ function syncPad(){
  if(stickEl&&stickEl.classList)stickEl.classList.toggle('active',!!s.active);
  if(focusEl&&focusEl.classList)focusEl.classList.toggle('on',!!TouchUI.focus);
  if(knobEl)knobEl.style.transform='translate(-50%,-50%) translate('+(s.kx||0)+'px,'+(s.ky||0)+'px)';
+ var ap=(typeof Net!=='undefined'&&Net.active&&Net.isGuest&&typeof P2!=='undefined')?P2:PL;
  if(bombEl&&bombEl.classList){
-  var canBomb=inPlay&&!PL.dead&&bombsAvailable();
-  var canSave=inPlay&&PL.dead&&PL.deathWindow>0;
+  var canBomb=inPlay&&!ap.dead&&bombsAvailable();
+  var canSave=inPlay&&ap.dead&&ap.deathWindow>0;
   bombEl.classList.toggle('off',inPlay&&!canBomb&&!canSave);
  }
  if(spellEl&&spellEl.classList){
-  var canCast=inPlay&&!PL.dead&&PL.spells>0&&bombsAvailable();
-  var canDeath=inPlay&&PL.dead&&PL.deathWindow>0&&PL.spells>0;
+  var canCast=inPlay&&!ap.dead&&ap.spells>0&&bombsAvailable();
+  var canDeath=inPlay&&ap.dead&&ap.deathWindow>0&&ap.spells>0;
   spellEl.classList.toggle('off',inPlay&&!canCast&&!canDeath);
  }
 }

@@ -130,6 +130,8 @@ function sync(){
  if(autoFire)flags.push('AUTO');
  if(AudioSys.muted)flags.push('MUTED');
  if(typeof players!=='undefined'&&players.length>1)flags.push('2P');
+ if(typeof G!=='undefined'&&G&&G.online)flags.push('ONLINE');
+ if(typeof Net!=='undefined'&&Net.active&&Net.rtt>0)flags.push(Math.round(Net.rtt)+'MS');
  if(typeof GamepadSupport!=='undefined'&&GamepadSupport.connected&&GamepadSupport.enabled)flags.push('PAD');
  if(settings&&settings.aiDialogue===false)flags.push('AI OFF');
  if(perfLevel<2)flags.push(perfLevel?'FX HALF':'FX LOW');

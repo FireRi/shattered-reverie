@@ -111,10 +111,14 @@ function updatePlayerDeath(p=PL){
 }
 function updatePlayerMovement(p=PL){
  if(Gdemo){updateDemoMovement();return;}
- p.focus=p===PL?(down(KEY.SHIFT)||TouchUI.focus):downP(p,KEY.SHIFT);
+ const net=(typeof Net!=='undefined'&&Net&&Net.capturing);
+ p.focus=p===PL?(down(KEY.SHIFT)||(net?!!Net.focus:TouchUI.focus)):(downP(p,KEY.SHIFT)||(net?!!Net.p2focus:false));
  const sp=p.focus?3.2:5.5;
  let dx=(downP(p,KEY.RIGHT)?1:0)-(downP(p,KEY.LEFT)?1:0),dy=(downP(p,KEY.DOWN)?1:0)-(downP(p,KEY.UP)?1:0);
- if(p===PL&&typeof Replay!=='undefined'&&Replay.playback&&Replay.analog){dx=Replay.ax;dy=Replay.ay;}
+ if(net){
+  if(p===PL){if(Net.analog){dx=Net.ax;dy=Net.ay;}}
+  else{if(Net.p2analog){dx=Net.p2ax;dy=Net.p2ay;}}
+ }else if(p===PL&&typeof Replay!=='undefined'&&Replay.playback&&Replay.analog){dx=Replay.ax;dy=Replay.ay;}
  else if(p===P2&&typeof Replay!=='undefined'&&Replay.playback&&Replay.p2analog){dx=Replay.p2ax;dy=Replay.p2ay;}
  else if(p===PL&&IS_TOUCH&&TouchUI.stick.active){dx=TouchUI.stick.ax;dy=TouchUI.stick.ay;}
  const mag=Math.hypot(dx,dy);
@@ -179,7 +183,7 @@ function tickMonochromeRay(p=PL){
  if(G.monoRay.t>200)G.monoRay=null;
 }
 let _neC=null,_neF=-1;
-function _ne(){if(_neF!==G.frame){_neC=(BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.atk&&BOSS.cutin<=0)?BOSS:null;_neF=G.frame;}return _neC;}
+function _ne(){if(_neF!==G.simFrame){_neC=(BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.atk&&BOSS.cutin<=0)?BOSS:null;_neF=G.simFrame;}return _neC;}
 const BOSS_HIT_R=26;
 function updateOptions(p,n,spread=true){
  p.opts.length=n;

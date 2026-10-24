@@ -33,8 +33,11 @@ Every game script is loaded via `<script>` tags in `index.html` in a specific or
 index.html
   ├── js/
   │   ├── engine.js      Core systems (loaded first, defines globals)
+  │   ├── dmath.js       Deterministic math shim for online/replay lockstep
   │   ├── gamepad.js     Gamepad API bridge + remappable bindings
   │   ├── replay.js      Deterministic input/RNG recorder + shareable run files
+  │   ├── netconfig.js   Relay URL + protocol constants
+  │   ├── net.js         Room-code online co-op lockstep client
   │   ├── audio.js       SFX synthesis + music volume buses
   │   ├── music.js       Per-stage/boss procedural score generator
   │   ├── player.js      Player ship, shots, bombs, graze
@@ -53,6 +56,7 @@ index.html
   │   └── boot.js        Viewport fitting + DOM touch pad + canvas tap zones
   ├── api/
   │   └── generate-dialog.js
+  ├── server/            Optional Node `ws` room-code relay (online co-op)
   ├── assets/sfx/        Sound effects
   ├── fonts/            UI fonts + licenses
   └── gfx/              Sprite and background art
@@ -64,8 +68,8 @@ All game code lives in `js/`; the entry point, Vercel API, and static assets sta
 The dependency chain is:
 
 ```
-engine.js + gamepad + replay  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
-(core + input + runs)            (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
+engine.js + dmath + gamepad + replay + net  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
+(core + math + input + runs + online)          (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -136,7 +140,7 @@ the full game state. Visual-only randomness uses `vrnd` and is excluded.
 
 | Area | Behavior |
 |------|----------|
-| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask |
+| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask; format v3 adds `seed`, `online`, and `dmath` for seeded online playback |
 | Dialogues | The four lines that appeared during the attempt are stored with the replay, so shared files keep their banter |
 | Save | `lasr_replay` stores the last completed or failed single-credit attempt (4.2 MB cap) |
 | Playback | Reconstructs the route, difficulty, mode flags, auto-fire state, and deterministic RNG; pausing is allowed but restart is blocked |
@@ -152,6 +156,40 @@ attempt adds `REPLAY SAVED // SETTINGS > REPLAY` to its results report.
 Replays are attempts, not full multi-credit sessions: continuing or retrying
 after a game over starts a fresh segment and does not stitch the previous
 segment into the file.
+
+### js/dmath.js
+
+Deterministic replacements for `sin`, `cos`, `atan2`, `sqrt`, and `hypot` that
+use only arithmetic and comparisons, so two clients running the same simulation
+produce identical results across JS engines. `DMath.enable()` patches `Math` and
+`DMath.disable()` restores it. It is enabled only for online runs and for
+seeded (v3) replay playback; solo play and v1/v2 replays keep native math.
+
+### js/net.js + js/netconfig.js
+
+Room-code online co-op. The host generates a seed and chooses the run; both
+clients run a delayed-input lockstep simulation at 60 Hz and exchange per-frame
+inputs over the relay. `netconfig.js` holds the protocol version, room-code
+alphabet, and relay URL (override with `?server=ws://host/ws` or
+`window.LASR_NET_URL`).
+
+| Area | Behavior |
+|------|----------|
+| Roles | Host is P1, guest is P2; the guest may use arrow keys or WASD (P1+P2 layers are merged) |
+| Delay | `D = clamp(ceil(RTT / 16.667) + 3, 4, 12)`, fixed for the run and shown as the lobby ping |
+| Inputs | Each client sends its own 13-byte input packet; tick `N` runs only when both inputs exist, otherwise the client shows a stall and stops accumulating frames |
+| Pause | A barrier pauses at `max(tick) + 2D + 15`; either player can request and resume |
+| Desync | Every 30 ticks each client exchanges a state hash (RNG, score, players, boss, entity counts); any mismatch aborts to the lobby |
+| Modes | Standard and 1CC with host-selected stage flags; Story and AI dialogue are disabled online |
+| Scores | Online runs save a v3 replay but never write a local high score |
+
+### server/
+
+Optional Node `ws` relay used for online co-op. It stores rooms in memory,
+relays control and binary messages between two sockets, and does not simulate
+the game. 5-character codes use `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`; rooms expire
+after 15 minutes idle. Deploy it anywhere that runs Node and supports
+WebSockets (the Northflank free Sandbox works well). See “Running the relay”.
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -488,6 +526,7 @@ active and can be used to reach Settings if a pad is not detected.
 | R | Play / game over | Pause at Restart / retry the stage |
 | S / H | Title | Settings / help |
 | V | Title | Open Replay |
+| O | Title | Open online co-op |
 | 2 | Title | Toggle local co-op |
 | A | Any except playback | Toggle auto-fire (solo; P2 movement in co-op) |
 | F | Any | Toggle the FPS readout |
@@ -506,6 +545,20 @@ living player, boss aim targets the nearest living player, co-op boss HP is
 `1.8x`, and the run ends only when both players are down. A route clear can
 revive a downed player when the route bonus grants a life. Replays record P2
 input as an optional `p2inputs` stream and restore it during playback.
+
+### 3.10 Online Co-op
+
+Online co-op is opened from the title with `O` (or the touch `ONLINE` button).
+One player hosts a room and shares the 5-character code; the guest joins by
+typing it. The host chooses Standard or 1CC and the stage flags, picks the run
+seed, and both players ready up before deploying. A `?room=CODE` link pre-fills
+the join code.
+
+The guest controls P2 with arrows or `WASD` (`J` shot, `K` flash, `L` spell,
+`I` focus) and the touch pad maps to P2. Either player can request a pause;
+resuming re-primes the input delay. Story, AI boss dialogue, continues, and
+high-score writes are disabled online. If the two simulations disagree, the run
+aborts back to the lobby. A completed online run still saves a v3 replay.
 
 ---
 
@@ -802,7 +855,10 @@ is ignored by `.gitignore`). Validate changes with syntax checks:
 
 ```
 node --check js/engine.js
+node --check js/dmath.js
 node --check js/gamepad.js
+node --check js/netconfig.js
+node --check js/net.js
 node --check js/audio.js
 node --check js/music.js
 node --check js/player.js
@@ -820,6 +876,7 @@ node --check js/main.js
 node --check js/cabinet.js
 node --check js/boot.js
 node --check api/generate-dialog.js
+node --check server/index.js
 ```
 
 Optional local harnesses (kept outside the repo) also exercise runtime behavior:
@@ -834,7 +891,33 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"
 $env:TOUCH='1'; node "C:\Users\Gabby\AppData\Local\Temp\opencode\controller-check.js"; Remove-Item Env:TOUCH
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\coop-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\xeno-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-live-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 ```
+
+`net-check.js` runs the deterministic math shim, host/guest input mapping,
+stall detection, v3 online replay validation, and a two-pass seeded online run
+that must produce matching state hashes. `server-check.js` starts the relay and
+exercises create/join/config/ready/start, binary relay, malformed-packet
+rejection, ping/pong, and disconnect cleanup. `online-shot.js` captures the
+Online menu/join/lobby/error screens in Edge.
+
+### Running the relay
+
+```powershell
+cd server
+npm install
+npm start
+```
+
+The relay listens on `http://localhost:8787` (`/health`) with WebSockets at
+`/ws`. Serve the game, then open it with `?server=ws://localhost:8787/ws` (or
+set `window.LASR_NET_URL`/`NET_URL`). In production set `ALLOWED_ORIGINS` (a
+comma-separated list, or `*`) and point the client at the deployed relay, e.g.
+`?server=wss://your-relay.code.run/ws`. The `server/Dockerfile` runs on the
+Northflank free Sandbox; `PORT` is supplied by the platform.
 
 `controller-check.js` mocks a standard gamepad and verifies held/edge mapping,
 title/menu bindings, stick movement, enable/disable, remap capture, bind
@@ -1019,8 +1102,9 @@ All sprite usage has vector fallbacks for headless testing.
   and the four dialogue lines. They capture the last single-credit attempt,
   not a full multi-credit session. The playback HUD is frame progress only:
   there is no seek/rewind, timeline scrubbing, live ghost overlay, or state
-  serialization. Sharing is asynchronous JSON export/import, not real-time
-  netplay. Local 2P co-op is supported; online co-op is not implemented.
+  serialization. Local 2P and room-code online co-op are supported. Online v1
+  is Standard/1CC only: no Story, spectators, matchmaking, mid-run reconnect,
+  online score writes, or host migration, and it needs the relay to be running.
 - **Fixed 4:3 playfield**: The simulation remains 640×480 and is scaled
   uniformly. Widescreen cabinets add side telemetry in the gutters rather than
   expanding the playfield, so native 16:9 gameplay is intentionally unsupported.

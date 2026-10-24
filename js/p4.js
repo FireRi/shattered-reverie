@@ -39,7 +39,7 @@ function*hoaS(b){
  while(true){
   const cyc=t%280;
   if(cyc===0){divDir*=-1;sfx('warn');}
-  divX=clamp(divX+divDir*(1.8+(G.beat||0)*.8),80,W-80);
+  divX=clamp(divX+divDir*(1.8+(G.simBeat||0)*.8),80,W-80);
   if(t%3===0){
    const side=(Math.floor(t/3)%2)===0;
    const sxs=side?-14:W+14;

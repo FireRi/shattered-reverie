@@ -1,5 +1,5 @@
 "use strict";
-const REPLAY_VERSION=2,REPLAY_KEY='lasr_replay',REPLAY_MAX_BYTES=4200000;
+const REPLAY_VERSION=3,REPLAY_KEY='lasr_replay',REPLAY_MAX_BYTES=4200000;
 const REPLAY_KEYS=[KEY.LEFT,KEY.RIGHT,KEY.UP,KEY.DOWN,KEY.SHIFT,KEY.Z,KEY.X,KEY.C];
 const Replay={
  data:null,rec:null,play:null,playback:false,ax:0,ay:0,analog:false,p2ax:0,p2ay:0,p2analog:false,autoFire:null,wantP2:false,
@@ -7,11 +7,14 @@ const Replay={
   return typeof v==='string'&&v.length>0&&v.length<=max;
  },
  normalize(d){
-  if(!d||typeof d!=='object'||(d.v!==1&&d.v!==REPLAY_VERSION))return null;
+  if(!d||typeof d!=='object'||(d.v!==1&&d.v!==2&&d.v!==3))return null;
   if(!Array.isArray(d.inputs)||!Array.isArray(d.rng))return null;
   const inputs=d.inputs;
   if(inputs.length<90||inputs.length%3!==0||inputs.length>5400000)return null;
   if(d.rng.length>2400000)return null;
+  const seed=Number.isInteger(d.seed)?(d.seed|0):null;
+  const usesSeed=d.v===3&&seed!==null;
+  if(!usesSeed&&d.rng.length===0)return null;
   for(let i=0;i<inputs.length;i++){
    if(!Number.isFinite(inputs[i]))return null;
   }
@@ -19,7 +22,7 @@ const Replay={
    if(!Number.isFinite(d.rng[i]))return null;
   }
   let p2inputs=null;
-  if(d.v===REPLAY_VERSION&&d.p2inputs!=null){
+  if(d.v>=2&&d.p2inputs!=null){
    if(!Array.isArray(d.p2inputs)||d.p2inputs.length!==inputs.length)return null;
    for(let i=0;i<d.p2inputs.length;i++){
     if(!Number.isFinite(d.p2inputs[i]))return null;
@@ -50,6 +53,9 @@ const Replay={
   const result=typeof d.result==='string'?d.result.toUpperCase().replace(/[^A-Z0-9 _-]/g,'').trim().slice(0,16)||'RUN':'RUN';
   return {
    v:REPLAY_VERSION,
+   seed:usesSeed?seed:null,
+   online:d.online===true,
+   dmath:d.v===3&&d.dmath===true,
    inputs:inputs.slice(),
    p2inputs,
    rng:d.rng.slice(),
@@ -93,14 +99,25 @@ const Replay={
  label(){
   const d=this.data;
   if(!d)return 'EMPTY';
-  return (d.oneCC&&d.story?'STORY 1CC':d.oneCC?'1CC':d.story?'STORY':'ROUTE')+' '+(d.result||'RUN');
+  return (d.online?'ONLINE ':'')+(d.oneCC&&d.story?'STORY 1CC':d.oneCC?'1CC':d.story?'STORY':'ROUTE')+' '+(d.result||'RUN');
  },
  startRecording(config){
   if(this.playback)return;
   this.rec=Object.assign({v:REPLAY_VERSION,inputs:[],rng:[],dialogues:{},result:'RUN',date:Date.now()},config||{});
   SimRng.beginRecord();
  },
+ startOnlineRecording(config){
+  if(this.playback)return;
+  this.rec=Object.assign({v:REPLAY_VERSION,online:true,dmath:true,inputs:[],p2inputs:[],rng:[],dialogues:{},result:'RUN',date:Date.now()},config||{});
+ },
+ captureNet(mask,ax,ay,mask2,ax2,ay2){
+  if(!this.rec||!this.rec.online)return;
+  this.rec.inputs.push(mask|0,ax||0,ay||0);
+  if(!this.rec.p2inputs)this.rec.p2inputs=[];
+  this.rec.p2inputs.push(mask2|0,ax2||0,ay2||0);
+ },
  beforeUpdate(){
+  if(typeof Net!=='undefined'&&Net&&Net.active)return;
   if(this.playback){this.applyFrame();return;}
   if(!this.rec)return;
   const ins=this.rec.inputs;
@@ -183,7 +200,8 @@ const Replay={
  finish(result){
   if(!this.rec)return false;
   const rec=this.rec;this.rec=null;
-  const rng=SimRng.log.slice();
+  const onlineRec=!!rec.online;
+  const rng=onlineRec?[]:SimRng.log.slice();
   SimRng.end();
   if(rec.inputs.length<90)return false;
   rec.rng=rng;
@@ -198,8 +216,10 @@ const Replay={
  },
  abort(){
   this.rec=null;this.wantP2=false;
+  this._endMath();
   SimRng.end();
  },
+ _endMath(){if(this.dmath&&typeof DMath!=='undefined')DMath.disable();this.dmath=false;},
  start(){
   const d=this.normalize(this.data);
   if(!d)return false;
@@ -218,7 +238,16 @@ const Replay={
   for(let i=0;i<flags.length;i++)G.selFlags[i]=!!flags[i];
   autoFire=!!d.autoFire;
   G.idleT=0;
-  SimRng.beginPlayback(d.rng||[]);
+  G.online=false;
+  if(d.online)G.aiDialogue=false;
+  if(d.seed!==null){
+   SimRng.beginSeed(d.seed);
+   this.dmath=!!d.dmath;
+   if(this.dmath&&typeof DMath!=='undefined')DMath.enable();
+  }else{
+   this.dmath=false;
+   SimRng.beginPlayback(d.rng||[]);
+  }
   startRun();
   if(G.screen!=='play'){this.stop();return false;}
   G.screen='play';
@@ -233,6 +262,7 @@ const Replay={
   if(this.autoFire!==null)autoFire=this.autoFire;
   this.autoFire=null;
   if(typeof G!=='undefined'&&G){G.replay=false;G.replayResult='';G.aiDialogue=settings.aiDialogue!==false;}
+  this._endMath();
   SimRng.end();
  },
  endPlayback(){
@@ -243,6 +273,7 @@ const Replay={
   if(this.autoFire!==null)autoFire=this.autoFire;
   this.autoFire=null;
   if(typeof settings!=='undefined')G.aiDialogue=settings.aiDialogue!==false;
+  this._endMath();
   G.replayEnded=true;
   showResults();
  },
@@ -250,7 +281,7 @@ const Replay={
   const d=this.data;
   if(!d)return null;
   return {
-   mode:d.oneCC&&d.story?'STORY 1CC':d.oneCC?'1CC':d.story?'STORY':'ROUTE',
+   mode:(d.online?'ONLINE ':'')+(d.oneCC&&d.story?'STORY 1CC':d.oneCC?'1CC':d.story?'STORY':'ROUTE'),
    diff:d.diffName||DIFFS[clamp(d.diff|0,0,DIFFS.length-1)]||'',
    score:fmtScore(d.score|0),
    spells:(d.spellsCaptured|0)+' / '+(d.spellsPlayed|0),
