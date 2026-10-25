@@ -107,6 +107,7 @@ js/dialogue.js   44 boss banter profiles, AI cache, validation, fallbacks
 js/boss.js       boss lifecycle and shared boss context API
 js/story.js      story-mode mobs and wave control
 js/render.js     gameplay sprites, bullets, effects, low-level drawing
+js/gfxgl.js      optional WebGL instanced projectile batch (2D fallback)
 js/patterns.js   stage 1-3 boss patterns and shared pattern helpers
 js/p4.js js/p5.js js/p6.js js/pex.js js/pexa.js
 js/main.js       game state machine, menus, HUD, route flow, UI kit
@@ -139,6 +140,7 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 - Screens include: `title`, `diff`, `sel`, `settings`, `controller`, `replay`, `help`, `play`, `pause`, `gameover`, `result`, `demo`.
 - Story mode uses waves and three credits; 1CC and Story 1CC use one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
 - Save keys include `lasr_hi`, `lasr_hi_0`–`lasr_hi_2` (per-difficulty), `lasr_diff` (0–2), `lasr_sel` (stage flags), `lasr_chara`/`lasr_p2chara` (character picks), `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, `lasr_gamepad`, and `lasr_replay`.
+- Rendering: `js/gfxgl.js` batches enemy bullets, player shots, and items as WebGL instanced quads into an offscreen canvas, then one `drawImage` blit, when WebGL+instancing is available and ≥64 projectiles are on screen; otherwise `render.js` uses the Canvas 2D loops. Sprites are atlas-minted from the 2D canvases; sampling is NEAREST and the 2D projectile path sets `imageSmoothingEnabled=false`. Tainted/unavailable GL falls back to 2D. Rendering only — sim/replay/online unaffected. Collision hot paths use y-band early-out and squared distances (`js/player.js`, `js/engine.js`).
 - Playable characters live in `js/chara.js` (`CHARAS`, `CHARAS[i].fire(p,pint)`, `optStyle`/`optCount`, `move`/`focus`). Six archetypes: Suzuran (homing), Kurogane (needle/shotgun), Kagenui (piercing laser), Hibari (spread), Kaede (angled), Yomogi (missile). `G.charaPicks` carries both slots; `startRun`/`startOnlineRun` apply them, `lasr_chara`/`lasr_p2chara` persist. Shot type is recorded in replay (`chara`/`p2chara`) and exchanged online (config + `pick`). `pierce`/shotgun-falloff/angled-aim are handled in `engine.js`/`chara.js`.
 - Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
 - Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, O online co-op, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.

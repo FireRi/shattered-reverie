@@ -32,7 +32,8 @@ const virnd=(a,b)=>Math.floor(vrnd(a,b+1));
 const vpick=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
-const dist=(x,y,X,Y)=>Math.hypot(X-x,Y-y);
+const dist=(x,y,X,Y)=>{const dx=X-x,dy=Y-y;return Math.sqrt(dx*dx+dy*dy);};
+const dist2=(x,y,X,Y)=>{const dx=X-x,dy=Y-y;return dx*dx+dy*dy;};
 const angTo=(x,y)=>{const p=targetPlayer();return Math.atan2(p.y-y,p.x-x);};
 
 
@@ -311,7 +312,7 @@ function pUpdate(){
     let cur=Math.atan2(b.vy,b.vx)*180/Math.PI;
     let diff=((want-cur+540)%360)-180;
     cur+=clamp(diff,-OPTION_TURN_RATE,OPTION_TURN_RATE);
-    const sp=Math.hypot(b.vx,b.vy);
+    const sp=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
     b.vx=Math.cos(cur*Math.PI/180)*sp;b.vy=Math.sin(cur*Math.PI/180)*sp;
    }
   }
@@ -352,17 +353,19 @@ function nearestItemPlayer(it){
  let best=PL,bestD=Infinity;
  for(const p of players){
   if(p.dead)continue;
-  const d=dist(it.x,it.y,p.x,p.y);
+  const dx=it.x-p.x,dy=it.y-p.y;const d=dx*dx+dy*dy;
   if(d<bestD){bestD=d;best=p;}
  }
  return best;
 }
 function itemUpdate(){
- const above=players.some(p=>!p.dead&&p.y<150);
+ let above=false;
+ for(const p of players)if(!p.dead&&p.y<150){above=true;break;}
  for(let i=items.length-1;i>=0;i--){const it=items[i];it.t2++;
   const target=nearestItemPlayer(it);
   if(above&&!it.fall)it.fall=true;
-  if(!it.fall&&dist(it.x,it.y,target.x,target.y)<75)it.fall=true;
+  let d2=(it.x-target.x)*(it.x-target.x)+(it.y-target.y)*(it.y-target.y);
+  if(!it.fall&&d2<5625)it.fall=true;
   if(it.fall){it.x=lerp(it.x,target.x,.09);it.y=lerp(it.y,target.y,.14);
    if(it.t2%4===0&&fx.length<300)fx.push({t:'trail',x:it.x+vrnd(-3,3),y:it.y+vrnd(-2,4),c:IT[it.t],life:10,max:10});}
   else{it.vy=Math.min(it.vy+.12,2.6);it.vx*=.98;it.x+=it.vx;it.y+=it.vy;
@@ -371,7 +374,8 @@ function itemUpdate(){
    it.life=(it.life===undefined?560:it.life)-1;
    if(it.life<=0){collect(it,target);fxSpark(it.x,it.y,'#cfc',8);killItem(i);continue;}
   }
-   if(dist(it.x,it.y,target.x,target.y)<16||above){
+   d2=(it.x-target.x)*(it.x-target.x)+(it.y-target.y)*(it.y-target.y);
+   if(d2<256||above){
     collect(it,target);killItem(i);}
   }
 }

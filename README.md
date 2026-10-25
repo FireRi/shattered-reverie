@@ -46,6 +46,7 @@ index.html
   │   ├── boss.js        Boss state machine + shared context API
   │   ├── story.js       Story-mode trash mobs + wave control
   │   ├── render.js      All canvas drawing (bullets, mobs, FX, HUD helpers)
+  │   ├── gfxgl.js       Optional WebGL instanced batch for projectiles
   │   ├── patterns.js    Stage 1–3 boss patterns + shared helpers
   │   ├── p4.js          Stage 4 bosses
   │   ├── p5.js          Stage 5 bosses
@@ -69,7 +70,7 @@ All game code lives in `js/`; the entry point, Vercel API, and static assets sta
 The dependency chain is:
 
 ```
-engine.js + dmath + chara + gamepad + replay + net  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
+engine.js + dmath + chara + gamepad + replay + net  →  audio  →  music  →  player/dialogue/boss/story/render/gfxgl  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
 (core + math + cast + input + runs + online)           (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
 ```
 
@@ -221,6 +222,26 @@ selection screen's PWR/SPD/SPRD bars and `CHARA_VIS` its animated preview.
 
 Meme-worthy balance target (raw damage over 1,200 frames vs. one boss, power 400):
 all six sit within ~1.25× of each other; `chara-check.js` enforces a 1.6× cap.
+
+### js/gfxgl.js
+
+Optional WebGL accelerator for projectiles. When WebGL + instancing
+(`ANGLE_instanced_arrays` or WebGL2) are available, enemy bullets, player
+shots, and items are drawn as instanced textured quads into an offscreen
+`640×480` canvas, then composited into the scene with a **single**
+`drawImage` at the projectile step. Sprites come from an atlas minted from the
+exact canvases the 2D path already produces (`bulletSprite`, `proceduralSprite`,
+`tinted`, item assets) plus baked player-shot sprites, so the look is preserved.
+
+- Sampling is `GL_NEAREST` and the 2D projectile path sets
+  `imageSmoothingEnabled=false`, so both paths are crisp and match (crisper
+  than the previous smoothed Canvas default).
+- If WebGL is unavailable, the atlas is tainted (cross-origin images), or the
+  scene is sparse (<64 projectiles), the existing Canvas 2D loops are used.
+- Rendering only — simulation, replay, and online checksums are unaffected.
+- Measured on a software renderer: `drawEntities` at 1,500 bullets drops from
+  ~21.7 ms to ~9 ms/frame; see the temp `render-bench.js` / `gfx-fidelity.js`
+  harnesses.
 
 ### js/patterns.js + js/p4–pexa.js
 

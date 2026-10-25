@@ -235,14 +235,18 @@ function playerGrazeCheck(p=PL){
  if(p.inv<=0&&!p.dead&&BOSS&&!BOSS.dying&&BOSS.state==='fight'&&BOSS.cutin<=0&&Math.abs(p.x-BOSS.x)<34&&Math.abs(p.y-BOSS.y)<34){
   killPlayer(p);return;
  }
- if(p.inv<=0&&!p.dead){
+ if(p.inv<=0&&!p.dead&&mobs.length){
   for(const m of mobs){
    const mdx=m.x-p.x,mdy=m.y-p.y;
    if(mdx*mdx+mdy*mdy<(m.r+PLAYER_HIT_R)*(m.r+PLAYER_HIT_R)){killPlayer(p);return;}
   }
  }
- for(const b of eshots){
-  const dx=b.x-p.x,dy=b.y-p.y,d2=dx*dx+dy*dy;
+ const yBand=GRAZE_R+10;
+ for(let ei=0;ei<eshots.length;ei++){
+  const b=eshots[ei];
+  const by=b.y-p.y;
+  if(by>yBand||by<-yBand)continue;
+  const dx=b.x-p.x,dy=by,d2=dx*dx+dy*dy;
   if(!b.grazed&&!(b.grazeMask&bit)&&d2<(GRAZE_R+b.r*.5)*(GRAZE_R+b.r*.5)){
    b.grazeMask=(b.grazeMask|0)|bit;p.graze++;G.score+=500;
    G.od=Math.min(G.odMax,G.od+(G.trance>0?0:(G.trance<=0&&p.flash>=p.flashMax?2:1)));
