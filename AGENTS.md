@@ -39,6 +39,8 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-live-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\cab-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-shot.js"
@@ -57,6 +59,8 @@ Expected current results:
 - `net-live-check.js`: `NET LIVE PASSED` — two VM game instances over the real relay create/join/start and advance in lockstep with matching state hashes.
 - `server-check.js`: `SERVER CHECK PASSED` for relay health, create/join, config validation, ready/start, binary relay, malformed-packet rejection, ping/pong, and disconnect cleanup.
 - `online-shot.js`: `ONLINE SHOT PASSED` at 1280x960 with no page errors; captures Online menu/join/lobby/wait/error and the title button.
+- `chara-check.js`: `CHARACTER CHECK PASSED` for the six-character roster, solo/co-op runs, finite bullets, cap compliance, and DPS spread within 1.6×.
+- `chara-shot.js`: `CHARA SHOT PASSED`; captures the selection screen (solo/co-op/touch/portrait) and in-game shots for several characters.
 - `controller-check.js`: desktop and touch `17/17 PASSED` with a mocked standard pad; covers held/edge keys, non-standard axis pairs, context mapping, enable/disable, remap capture, bind suppression, hotplug cleanup, persistence, and controller-screen drawing.
 - `coop-check.js`: `CO-OP PASSED` for title toggle/persistence, P2 activation/spawn, isolated movement/shooting, nearest-player items, one-player-down continuation, both-down game over, route revive, 2P replay record/playback, second-pad ownership, and co-op HUD drawing.
 - `replay-check.js`: `REPLAY PASSED` after a 5,000-frame deterministic record/playback with zero RNG starvation.
@@ -91,6 +95,7 @@ Load order matters. Do not reorder `index.html` scripts.
 ```
 js/engine.js     constants, IS_TOUCH, input, pools, shared state, SimRng, TouchUI, NET_BITS
 js/dmath.js      deterministic sin/cos/atan2/sqrt/hypot shim for online/seeded replay
+js/chara.js      6 playable characters: shot types, option layouts, speeds, aim
 js/gamepad.js    Gamepad API bridge, padKeys/padEdge, remap + persistence
 js/replay.js     deterministic input/RNG replay, save, JSON import/export, v3 seed/online
 js/netconfig.js  NET_PROTO, NET_URL, room alphabet
@@ -133,7 +138,8 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 
 - Screens include: `title`, `diff`, `sel`, `settings`, `controller`, `replay`, `help`, `play`, `pause`, `gameover`, `result`, `demo`.
 - Story mode uses waves and three credits; 1CC and Story 1CC use one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
-- Save keys include `lasr_hi`, `lasr_hi_0`–`lasr_hi_2` (per-difficulty), `lasr_diff` (0–2), `lasr_sel` (stage flags), `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, `lasr_gamepad`, and `lasr_replay`.
+- Save keys include `lasr_hi`, `lasr_hi_0`–`lasr_hi_2` (per-difficulty), `lasr_diff` (0–2), `lasr_sel` (stage flags), `lasr_chara`/`lasr_p2chara` (character picks), `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, `lasr_gamepad`, and `lasr_replay`.
+- Playable characters live in `js/chara.js` (`CHARAS`, `CHARAS[i].fire(p,pint)`, `optStyle`/`optCount`, `move`/`focus`). Six archetypes: Suzuran (homing), Kurogane (needle/shotgun), Kagenui (piercing laser), Hibari (spread), Kaede (angled), Yomogi (missile). `G.charaPicks` carries both slots; `startRun`/`startOnlineRun` apply them, `lasr_chara`/`lasr_p2chara` persist. Shot type is recorded in replay (`chara`/`p2chara`) and exchanged online (config + `pick`). `pierce`/shotgun-falloff/angled-aim are handled in `engine.js`/`chara.js`.
 - Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
 - Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, O online co-op, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.
 - Co-op P2 keyboard: WASD move, J shot, K flash, L spell, I focus. P2 keys are ignored while solo so P1 hotkeys keep working; while co-op is active P2 consumes those keys before P1.

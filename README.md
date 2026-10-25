@@ -34,6 +34,7 @@ index.html
   ├── js/
   │   ├── engine.js      Core systems (loaded first, defines globals)
   │   ├── dmath.js       Deterministic math shim for online/replay lockstep
+  │   ├── chara.js       Six playable characters (shot types, options, speeds)
   │   ├── gamepad.js     Gamepad API bridge + remappable bindings
   │   ├── replay.js      Deterministic input/RNG recorder + shareable run files
   │   ├── netconfig.js   Relay URL + protocol constants
@@ -68,8 +69,8 @@ All game code lives in `js/`; the entry point, Vercel API, and static assets sta
 The dependency chain is:
 
 ```
-engine.js + dmath + gamepad + replay + net  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
-(core + math + input + runs + online)          (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
+engine.js + dmath + chara + gamepad + replay + net  →  audio  →  music  →  player/dialogue/boss/story/render  →  patterns  →  p4/p5/p6/pex/pexa  →  main.js  →  cabinet.js  →  boot.js
+(core + math + cast + input + runs + online)           (sfx)     (score)     (systems + content helpers)              (S1–3)      (more bosses)            (state machine)  (desktop HUD)  (env)
 ```
 
 All cross-file communication uses global scope. Functions declared in one file
@@ -196,6 +197,30 @@ game, they only relay control and binary messages between the two sockets.
 
 Both accept `/ws?code=XXXXX&role=host|guest` and expose `/health`. Codes use
 `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. See “Running the relay” for deploy steps.
+
+### js/chara.js
+
+Six playable characters, each with a distinct bullet and shot type. The host of
+the run picks one character per player before the route. Selection persists in
+`lasr_chara` (P1) and `lasr_p2chara` (P2); Story and demo runs still apply it.
+
+| Character | Archetype | Bullet | Move / Focus |
+|-----------|-----------|--------|--------------|
+| Suzuran — *The Border Exorcist* | Homing | amulet | 5.5 / 3.2 |
+| Kurogane — *The Iron Fang* | Needle / shotgun (close-range damage bonus) | needle | 4.8 / 2.8 |
+| Kagenui — *The Shadow Seamstress* | Piercing laser | lance (`pierce`) | 5.4 / 3.0 |
+| Hibari — *The Skybound Flock* | Spreadshot | scatter | 6.2 / 3.4 |
+| Kaede — *The Windward Dancer* | Angled (rotates with movement, locks on focus) | knife | 6.0 / 3.6 |
+| Yomogi — *The Incense Burner* | Missile | missile | 5.0 / 2.9 |
+
+Each defines `optStyle`/`optCount` (option layout), `move`/`focus` speeds, and a
+`fire(p, pint)` pattern. `pierce` bullets pass through targets (`engine.js`
+handles the cooldown), shotgun characters scale damage by proximity, and Kaede's
+`aimAng` follows horizontal movement while unfocused. `CHARA_STATS` drives the
+selection screen's PWR/SPD/SPRD bars and `CHARA_VIS` its animated preview.
+
+Meme-worthy balance target (raw damage over 1,200 frames vs. one boss, power 400):
+all six sit within ~1.25× of each other; `chara-check.js` enforces a 1.6× cap.
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -534,6 +559,7 @@ active and can be used to reach Settings if a pad is not detected.
 | V | Title | Open Replay |
 | O | Title | Open online co-op |
 | 2 | Title | Toggle local co-op |
+| — | Character select | Arrows/D-pad pick, `Z` confirm (co-op picks 1P then 2P) |
 | A | Any except playback | Toggle auto-fire (solo; P2 movement in co-op) |
 | F | Any | Toggle the FPS readout |
 | M | Any | Mute all audio |
@@ -902,6 +928,8 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-live-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-shot.js"
 ```
 
 `net-check.js` runs the deterministic math shim, host/guest input mapping,
@@ -909,6 +937,10 @@ stall detection, v3 online replay validation, and a two-pass seeded online run
 that must produce matching state hashes. `server-check.js` starts the Node relay
 and exercises room routing, busy/no-room/full rejection, config/ready/start,
 binary relay, malformed-packet rejection, ping/pong, and disconnect cleanup.
+`chara-check.js` runs all six characters solo and in co-op pairs against a boss,
+asserting finite values, cap compliance, that every character deals damage, and
+that DPS spread stays within 1.6×. `chara-shot.js` captures the selection screen
+and in-game shots for several characters.
 `net-live-check.js` runs two VM game instances through a live relay in lockstep
 and compares a state hash at a common tick; set `RELAY_URL` to point it at
 `wrangler dev` (e.g. `$env:RELAY_URL='ws://127.0.0.1:8788/ws'`) to validate the

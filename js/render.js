@@ -295,8 +295,10 @@ function drawMagicCircleFloor(x,y){
 function drawPlayer(p=PL){
  if(p.dead)return;
  const blink=p.inv>0&&Math.floor(p.inv/3)%2===0;
- const accent=p===P2?'#ff70c0':'#5af';
- const outline=p===P2?'#ffb0d8':'#aabbee';
+ const cd=(typeof charaDef==='function')?charaDef(p.chara):null;
+ const accent=p===P2?'#ff70c0':(cd?cd.accent:'#5af');
+ const outline=p===P2?'#ffb0d8':(cd?cd.outline:'#aabbee');
+ const body=cd?cd.color:'#5af';
  if(p.shooting&&G.frame%2===0){
   for(const o of p.opts)if(o&&fx.length<300)
    fx.push({t:'trail',x:o.x+vrnd(-2,2),y:o.y+vrnd(-1,3),c:p===P2?'#ffb7e0':'#9cf',life:9,max:9});
@@ -318,7 +320,7 @@ function drawPlayer(p=PL){
   cx.save();cx.translate(o.x-p.x,o.y-p.y);
   const t=performance.now();
   cx.globalCompositeOperation='lighter';
-  const halo=tinted('gen_glow',p===P2?'#ff9fd4':'#7fdfff');
+  const halo=tinted('gen_glow',p===P2?'#ff9fd4':(cd?cd.accent:'#7fdfff'));
   if(halo&&perfLevel>0){cx.globalAlpha=.85;cx.drawImage(halo,-14,-14,28,28);}
   cx.globalAlpha=1;
   cx.fillStyle='#eef6ff';
@@ -333,6 +335,7 @@ function drawPlayer(p=PL){
  cx.beginPath();cx.moveTo(0,-16);cx.lineTo(11,10);cx.lineTo(0,5);cx.lineTo(-11,10);cx.closePath();cx.fill();
  cx.strokeStyle=outline;cx.lineWidth=1.6;cx.stroke();
  cx.fillStyle='#eef4ff';cx.beginPath();cx.moveTo(0,-13);cx.lineTo(6,7);cx.lineTo(0,3);cx.lineTo(-6,7);cx.closePath();cx.fill();
+ cx.fillStyle=body;cx.globalAlpha=.85;cx.fillRect(-1.3,-10,2.6,10);cx.globalAlpha=1;
  cx.fillStyle=accent;cx.beginPath();cx.arc(0,-4,2.4,0,TAU);cx.fill();
  cx.restore();
  if(p.focus){
@@ -342,6 +345,54 @@ function drawPlayer(p=PL){
   cx.strokeStyle=p===P2?'rgba(255,150,210,.7)':'rgba(120,200,255,.7)';
   cx.beginPath();cx.arc(0,0,9,0,TAU);cx.stroke();cx.restore();
  }
+}
+function drawPShot(b){
+ const own=b.own===1;
+ const col=b.col||'#9cf';
+ const rim=own?'rgba(255,120,200,.5)':'rgba(140,220,255,.45)';
+ cx.save();cx.translate(b.x,b.y);
+ cx.rotate(Math.atan2(b.vy,b.vx)+Math.PI/2);
+ switch(b.type){
+  case 'homing':
+   cx.globalCompositeOperation='lighter';cx.fillStyle=rim;cx.fillRect(-3,-2,6,12);
+   cx.fillStyle='#dff6ff';cx.beginPath();cx.moveTo(0,-7);cx.lineTo(3.2,2);cx.lineTo(0,5);cx.lineTo(-3.2,2);cx.closePath();cx.fill();
+   cx.globalCompositeOperation='source-over';cx.strokeStyle=col;cx.lineWidth=1;cx.beginPath();cx.moveTo(0,-7);cx.lineTo(0,5);cx.stroke();
+   break;
+  case 'amulet':
+   cx.globalCompositeOperation='lighter';cx.fillStyle=rim;cx.beginPath();cx.arc(0,0,7,0,TAU);cx.fill();
+   cx.save();cx.rotate(b.t*.22);cx.fillStyle=col;cx.beginPath();cx.moveTo(0,-6);cx.lineTo(4.4,0);cx.lineTo(0,6);cx.lineTo(-4.4,0);cx.closePath();cx.fill();cx.restore();
+   cx.globalCompositeOperation='source-over';cx.strokeStyle='#fff';cx.lineWidth=1;cx.beginPath();cx.moveTo(0,-6);cx.lineTo(0,6);cx.stroke();
+   break;
+  case 'needle':
+   cx.globalCompositeOperation='lighter';cx.strokeStyle=rim;cx.lineWidth=3.2;cx.lineCap='round';cx.beginPath();cx.moveTo(0,-11);cx.lineTo(0,8);cx.stroke();
+   cx.strokeStyle=col;cx.lineWidth=1.4;cx.beginPath();cx.moveTo(0,-11);cx.lineTo(0,8);cx.stroke();cx.lineCap='butt';cx.globalCompositeOperation='source-over';
+   break;
+  case 'lance':{
+   const l=b.pierce>0?24:17;
+   cx.globalCompositeOperation='lighter';cx.fillStyle=rim;cx.fillRect(-3.2,-l*.55,6.4,l);
+   cx.fillStyle=col;cx.fillRect(-1.7,-l,3.4,l*1.55);
+   cx.fillStyle='#fff';cx.fillRect(-.8,-l*1.2,1.6,l*1.75);cx.globalCompositeOperation='source-over';
+   break;}
+  case 'scatter':
+   cx.globalCompositeOperation='lighter';cx.fillStyle=rim;cx.beginPath();cx.arc(0,0,7,0,TAU);cx.fill();
+   cx.fillStyle=col;cx.beginPath();cx.arc(0,0,4,0,TAU);cx.fill();
+   cx.fillStyle='#fff';cx.beginPath();cx.arc(0,0,1.8,0,TAU);cx.fill();cx.globalCompositeOperation='source-over';
+   break;
+  case 'knife':
+   cx.globalCompositeOperation='lighter';cx.fillStyle=rim;cx.beginPath();cx.moveTo(0,-10);cx.lineTo(5,6);cx.lineTo(0,3);cx.lineTo(-5,6);cx.closePath();cx.fill();
+   cx.fillStyle=col;cx.beginPath();cx.moveTo(0,-8);cx.lineTo(3.2,5);cx.lineTo(0,2.4);cx.lineTo(-3.2,5);cx.closePath();cx.fill();
+   cx.globalCompositeOperation='source-over';cx.strokeStyle='#fff';cx.lineWidth=.9;cx.beginPath();cx.moveTo(0,-8);cx.lineTo(0,5);cx.stroke();
+   break;
+  case 'missile':
+   cx.globalCompositeOperation='lighter';cx.fillStyle=rim;cx.fillRect(-4,-4,8,14);
+   cx.fillStyle=col;cx.beginPath();cx.moveTo(0,-9);cx.lineTo(4.5,-1);cx.lineTo(4.5,7);cx.lineTo(-4.5,7);cx.lineTo(-4.5,-1);cx.closePath();cx.fill();
+   cx.fillStyle='#ffe';cx.fillRect(-1.6,-11,3.2,4);cx.globalCompositeOperation='source-over';
+   break;
+  default:
+   cx.globalCompositeOperation='lighter';cx.strokeStyle=rim;cx.lineWidth=4.5;cx.lineCap='round';cx.beginPath();cx.moveTo(0,-9);cx.lineTo(0,7);cx.stroke();
+   cx.strokeStyle=col;cx.lineWidth=2;cx.beginPath();cx.moveTo(0,-9);cx.lineTo(0,7);cx.stroke();cx.lineCap='butt';cx.globalCompositeOperation='source-over';
+ }
+ cx.restore();
 }
 function drawEntities(){
  for(const L of elasers){
@@ -366,29 +417,7 @@ function drawEntities(){
   if(b.x<-30||b.x>W+30||b.y<-30||b.y>H+30)continue;
   drawBullet(b);
  }
- for(const b of pshots){
-  cx.save();cx.translate(b.x,b.y);
-  const aD=Math.atan2(b.vy,b.vx);
-  cx.rotate(aD+Math.PI/2);
-  if(b.type==='homing'){
-   cx.globalCompositeOperation='lighter';
-   cx.fillStyle='rgba(140,220,255,.4)';
-   cx.fillRect(-3,-2,6,12);
-   cx.fillStyle='#dff6ff';
-   cx.beginPath();cx.moveTo(0,-7);cx.lineTo(3.2,2);cx.lineTo(0,5);cx.lineTo(-3.2,2);cx.closePath();cx.fill();
-   cx.globalCompositeOperation='source-over';
-   cx.strokeStyle='rgba(120,200,255,.8)';cx.lineWidth=1;
-   cx.beginPath();cx.moveTo(0,-7);cx.lineTo(0,5);cx.stroke();
-  }else{
-   cx.globalCompositeOperation='lighter';
-   cx.strokeStyle='rgba(130,200,255,.45)';cx.lineWidth=4.5;cx.lineCap='round';
-   cx.beginPath();cx.moveTo(0,-9);cx.lineTo(0,7);cx.stroke();
-   cx.strokeStyle='#eef6ff';cx.lineWidth=2;cx.lineCap='round';
-   cx.beginPath();cx.moveTo(0,-9);cx.lineTo(0,7);cx.stroke();
-   cx.lineCap='butt';cx.globalCompositeOperation='source-over';
-  }
-  cx.restore();
- }
+  for(const b of pshots)drawPShot(b);
  cx.fillStyle='#fff';cx.font='bold 8px monospace';cx.textAlign='center';cx.textBaseline='middle';
  for(const it of items){
   if(it.x<-14||it.x>W+14||it.y<-16||it.y>H+16)continue;

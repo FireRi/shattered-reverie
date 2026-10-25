@@ -34,7 +34,9 @@ function validateConfig(c){
   if(c.flags.length>64)return null;
   flags=c.flags.map(v=>v===true);
  }
- return {diff,oneCC,story:false,seed,D,flags,autoFire:c.autoFire===true};
+ const chara=Number.isInteger(c.chara)?Math.max(0,Math.min(5,c.chara)):0;
+ const p2chara=Number.isInteger(c.p2chara)?Math.max(0,Math.min(5,c.p2chara)):0;
+ return {diff,oneCC,story:false,seed,D,flags,autoFire:c.autoFire===true,chara,p2chara};
 }
 
 function send(ws,obj){
@@ -114,6 +116,11 @@ function handleControl(ws,msg){
    if(!clean){send(ws,{t:"error",code:"bad-config"});break;}
    ws.room.config=clean;ws.room.last=Date.now();
    relay(ws,JSON.stringify({t:"start",config:clean}),false);
+   break;
+  }
+  case "pick":{
+   if(!ws.room)break;
+   relay(ws,JSON.stringify({t:"pick",chara:Number.isInteger(msg.chara)?msg.chara:0}),false);
    break;
   }
   case "pause-request":{

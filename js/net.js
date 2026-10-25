@@ -3,7 +3,7 @@ const Net={
  proto:NET_PROTO,
  active:false,capturing:false,role:null,isHost:false,isGuest:false,code:null,
  ws:null,status:'idle',error:'',msg:'',leaving:false,
- config:null,ready:{host:false,guest:false},localReady:false,
+ config:null,ready:{host:false,guest:false},localReady:false,peerChara:0,
  seed:null,D:6,tick:0,sendSeq:0,
  mask:0,mask2:0,edge:0,edge2:0,
  ax:0,ay:0,p2ax:0,p2ay:0,analog:false,p2analog:false,focus:false,p2focus:false,
@@ -59,7 +59,7 @@ const Net={
  reset(){
   this.active=false;this.capturing=false;this.paused=false;this.pauseAt=-1;this.stalling=false;
   this.role=null;this.isHost=false;this.isGuest=false;this.code=null;this.config=null;
-  this.ready={host:false,guest:false};this.localReady=false;
+  this.ready={host:false,guest:false};this.localReady=false;this.peerChara=0;
   this.localBuf={};this.remoteBuf={};this.myChecks={};this.remoteChecks={};
   this.guestFocus=false;this.tick=0;this.sendSeq=0;this.createAttempts=0;this.retrying=false;this.fatal=false;
   if(typeof DMath!=='undefined')DMath.disable();
@@ -112,6 +112,10 @@ const Net={
    case 'config':
     this.config=m.config;this.ready={host:false,guest:false};this.localReady=false;
     if(typeof G!=='undefined'&&G)G.onlineMsg='HOST UPDATED THE RUN';
+    break;
+   case 'pick':
+    this.peerChara=clamp(m.chara|0,0,(typeof CHARA_COUNT!=='undefined'?CHARA_COUNT-1:5));
+    if(typeof G!=='undefined'&&G){G.charaPicks[this.isHost?1:0]=this.peerChara;G.onlineMsg='P2 PICKED A CHARACTER';}
     break;
    case 'ready':
     this.ready[m.role]=m.ready===true;
@@ -339,7 +343,9 @@ if(typeof document!=='undefined'&&document.getElementById){
   Net.codeEl=el;
   el.addEventListener('input',()=>{
    const v=String(el.value||'').toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g,'').slice(0,5);
-   el.value=v;if(typeof G!=='undefined'&&G)G.onlineCode=v;
+   el.value=v;
+   try{el.setSelectionRange(v.length,v.length);}catch(e){}
+   if(typeof G!=='undefined'&&G)G.onlineCode=v;
   });
   el.addEventListener('keydown',e=>{
    if(e.key==='Enter'){if(typeof G!=='undefined'&&G){G.onlineCode=String(el.value||'').toUpperCase();}Net.joinRoom(el.value);}

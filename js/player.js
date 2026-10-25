@@ -1,8 +1,17 @@
 "use strict";
 /* ================= PLAYER ================= */
+function loadChara(slot){
+ try{
+  const v=parseInt(localStorage.getItem(slot===1?'lasr_p2chara':'lasr_chara')||'0',10);
+  if(Number.isFinite(v)&&v>=0)return clamp(v,0,CHARA_COUNT-1);
+ }catch(e){}
+ return 0;
+}
+function saveChara(slot,idx){try{localStorage.setItem(slot===1?'lasr_p2chara':'lasr_chara',String(clamp(idx|0,0,CHARA_COUNT-1)));}catch(e){}}
 function newPlayerState(slot){
  return {slot,x:W/2,y:H-70,lives:4,spells:2,power:300,graze:0,flashMax:30,flash:0,inv:0,dead:0,
-  focus:false,opts:[],optAng:0,shootT:0,deathT:0,rebirthX:0,rebirthY:0,alive:true,slowT:0};
+  focus:false,opts:[],optAng:0,shootT:0,deathT:0,rebirthX:0,rebirthY:0,alive:true,slowT:0,
+  chara:loadChara(slot),aimAng:-90,moveX:0};
 }
 const PL=newPlayerState(0);
 const P2=newPlayerState(1);
@@ -84,11 +93,12 @@ function useSpell(p=PL){
 function playerUpdate(p=PL){
  if(p.dead){updatePlayerDeath(p);return;}
  updatePlayerMovement(p);
+ charaStep(p);
  handleBombInput(p);
  const shooting=Gdemo||autoFire||downP(p,KEY.Z);
  p.shooting=shooting;
  if(shooting)firePlayerWeapon(p);
- else updateOptions(p,Math.floor(p.power/100)>=2?5:3,false);
+ else updateOptions(p,charaOptCount(p),false);
  tickMonochromeRay(p);
 }
 function updatePlayerDeath(p=PL){
@@ -113,7 +123,8 @@ function updatePlayerMovement(p=PL){
  if(Gdemo){updateDemoMovement();return;}
  const net=(typeof Net!=='undefined'&&Net&&Net.capturing);
  p.focus=p===PL?(down(KEY.SHIFT)||(net?!!Net.focus:TouchUI.focus)):(downP(p,KEY.SHIFT)||(net?!!Net.p2focus:false));
- const sp=p.focus?3.2:5.5;
+ const _cd=charaDef(p.chara);
+ const sp=p.focus?_cd.focus:_cd.move;
  let dx=(downP(p,KEY.RIGHT)?1:0)-(downP(p,KEY.LEFT)?1:0),dy=(downP(p,KEY.DOWN)?1:0)-(downP(p,KEY.UP)?1:0);
  if(net){
   if(p===PL){if(Net.analog){dx=Net.ax;dy=Net.ay;}}
@@ -123,6 +134,7 @@ function updatePlayerMovement(p=PL){
  else if(p===PL&&IS_TOUCH&&TouchUI.stick.active){dx=TouchUI.stick.ax;dy=TouchUI.stick.ay;}
  const mag=Math.hypot(dx,dy);
  if(mag>1){dx/=mag;dy/=mag;}
+ p.moveX=clamp(dx,-1,1);
  p.x=clamp(p.x+dx*sp,12,W-12);p.y=clamp(p.y+dy*sp,12,H-12);
  if(dx>0)p.tilt=Math.min(1,(p.tilt||0)+.14);else if(dx<0)p.tilt=Math.max(-1,(p.tilt||0)-.14);
  else p.tilt=(p.tilt||0)*.82;
@@ -138,6 +150,10 @@ function handleBombInput(p=PL){
 function firePlayerWeapon(p=PL){
  p.shootT++;
  const pint=Math.floor(p.power/100);
+ if(typeof charaDef==='function'){
+  charaDef(p.chara).fire(p,pint);
+  return;
+ }
  if(pint>=3)fireMainBeam(p,pint);
  else fireRapidShots(p,pint);
  fireOptionPellets(p,pint);
@@ -146,18 +162,18 @@ function fireMainBeam(p,pint){
  if(p.shootT%2!==0)return;
  const bs=_ne();
  const connected=!!bs&&Math.abs(bs.x-p.x)<BOSS_HIT_R&&bs.y<p.y-10;
- if(connected){damageBossRaw(1.55*(p.power/300));fxSpark(bs.x+rnd(-14,14),bs.y+18,'#bff6ff',7);}
+ if(connected){damageBossRaw(0.62*(p.power/300));fxSpark(bs.x+rnd(-14,14),bs.y+18,'#bff6ff',7);}
  for(const m of mobs){
   if(Math.abs(m.x-p.x)<m.r+6&&m.y<p.y-10){
-   damageMob(m,1.55*(p.power/300));fxSpark(m.x+rnd(-10,10),m.y+10,'#bff6ff',6);break;
+   damageMob(m,0.62*(p.power/300));fxSpark(m.x+rnd(-10,10),m.y+10,'#bff6ff',6);break;
   }
  }
  fx.push({t:'beam',x:p.x,y:p.y-14,life:6,max:6,w:(pint>=5?9:7)*(connected?1:.55),hit:connected});
 }
 function fireRapidShots(p,pint){
  if(p.shootT%4!==0)return;
- spawnP({x:p.x-6,y:p.y-10,v:14,ang:-90,dmg:2.2});
- spawnP({x:p.x+6,y:p.y-10,v:14,ang:pint>1?-84:-96,dmg:2.2});
+ spawnP({x:p.x-6,y:p.y-10,v:14,ang:-90,dmg:1.7});
+ spawnP({x:p.x+6,y:p.y-10,v:14,ang:pint>1?-84:-96,dmg:1.7});
  sfx('pshot');
 }
 function fireOptionPellets(p,pint){
@@ -188,10 +204,14 @@ const BOSS_HIT_R=26;
 function updateOptions(p,n,spread=true){
  p.opts.length=n;
  const f=p.focus;
+ const style=(typeof charaDef==='function')?charaDef(p.chara).optStyle:'center';
  for(let i=0;i<n;i++){
   const c=(n-1)/2;
   let tx,ty;
-  if(f){const a=p.optAng+TAU*i/n;tx=p.x+Math.cos(a)*26;ty=p.y+Math.sin(a)*26;}
+  if(style==='forward'){tx=p.x+(i-c)*(f?9:8);ty=p.y-(f?6:0)+8;}
+  else if(style==='wide'){tx=p.x+(i-c)*(f?16:28);ty=p.y+(f?10:18+(i%2)*5);}
+  else if(style==='side'){tx=p.x+(i-c)*(f?18:24);ty=p.y+(f?4:12);}
+  else if(f){const a=p.optAng+TAU*i/n;tx=p.x+Math.cos(a)*26;ty=p.y+Math.sin(a)*26;}
   else{tx=p.x+(i-c)*17;ty=p.y+16+(i%2)*6;}
   if(!p['o'+i])p['o'+i]={x:tx,y:ty};
   const o=p['o'+i];o.x=lerp(o.x,tx,f?.4:.18);o.y=lerp(o.y,ty,f?.4:.18);

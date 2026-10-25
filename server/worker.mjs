@@ -36,7 +36,9 @@ function validateConfig(c) {
 		if (c.flags.length > 64) return null;
 		flags = c.flags.map((v) => v === true);
 	}
-	return { diff, oneCC, story: false, seed, D, flags, autoFire: c.autoFire === true };
+	const chara = Number.isInteger(c.chara) ? Math.max(0, Math.min(5, c.chara)) : 0;
+	const p2chara = Number.isInteger(c.p2chara) ? Math.max(0, Math.min(5, c.p2chara)) : 0;
+	return { diff, oneCC, story: false, seed, D, flags, autoFire: c.autoFire === true, chara, p2chara };
 }
 
 function send(ws, obj) {
@@ -222,6 +224,7 @@ export class RoomDO extends DurableObject {
 				this.relay(ws, { t: "start", config: clean });
 				return;
 			}
+			case "pick":
 			case "pause-request":
 			case "pause-at":
 			case "resume":

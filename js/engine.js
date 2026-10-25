@@ -295,13 +295,14 @@ function eUpdate(){
 }
 function spawnP(o){
  if(pshots.length>400)return;
- const b={x:0,y:0,v:10,ang:-90,dmg:2,type:'shot',r:4,t:0,dead:false};
+ const b={x:0,y:0,v:10,ang:-90,dmg:2,type:'shot',r:4,t:0,dead:false,col:'#9cf',own:0,pierce:0,pierceCd:0};
  Object.assign(b,o);b.vx=Math.cos(b.ang*Math.PI/180)*b.v;b.vy=Math.sin(b.ang*Math.PI/180)*b.v;
  pshots.push(b);
 }
 function pUpdate(){
  const bs=_ne();
  for(let i=pshots.length-1;i>=0;i--){const b=pshots[i];b.t++;
+  if(b.pierceCd>0)b.pierceCd--;
   if(b.hom&&b.tgt){
    const alive=b.tgt===bs||mobs.includes(b.tgt);
    if(!alive){b.hom=false;b.tgt=null;}
@@ -314,21 +315,26 @@ function pUpdate(){
     b.vx=Math.cos(cur*Math.PI/180)*sp;b.vy=Math.sin(cur*Math.PI/180)*sp;
    }
   }
-  if(bs){
+  if(bs&&b.pierceCd<=0&&!b.hitBoss){
    const dx=b.x-bs.x,dy=b.y-bs.y;
    if(dx*dx+dy*dy<(BOSS_HIT_R+3)*(BOSS_HIT_R+3)){
     damageBossRaw(b.dmg||2);
     fxSpark(bs.x+vrnd(-10,10),bs.y+vrnd(6,20),'#fff',7);
-    killP(i);continue;
+    if(b.pierce>0){b.pierce--;b.hitBoss=true;b.pierceCd=4;}
+    else{killP(i);continue;}
    }
   }
   let hitMob=false;
   for(let j=mobs.length-1;j>=0;j--){const m=mobs[j];
    const mdx=b.x-m.x,mdy=b.y-m.y;
    if(mdx*mdx+mdy*mdy<(m.r+4)*(m.r+4)){
-    damageMob(m,b.dmg||2);
-    fxSpark(b.x,b.y,'#fff',6);
-    hitMob=true;break;
+    if(b.pierceCd<=0&&(!b.hitSet||!b.hitSet.has(m))){
+     damageMob(m,b.dmg||2);
+     fxSpark(b.x,b.y,'#fff',6);
+     if(b.pierce>0){b.pierce--;b.pierceCd=3;if(!b.hitSet)b.hitSet=new Set();b.hitSet.add(m);}
+     else{hitMob=true;}
+    }
+    break;
    }
   }
   if(hitMob){killP(i);continue;}

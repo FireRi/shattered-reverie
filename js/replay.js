@@ -64,6 +64,8 @@ const Replay={
    diffName:String(d.diffName||'').slice(0,32),
    story:d.story===true,
    oneCC:d.oneCC===true,
+   chara:Number.isInteger(d.chara)?clamp(d.chara,0,(typeof CHARA_COUNT!=='undefined'?CHARA_COUNT-1:5)):0,
+   p2chara:Number.isInteger(d.p2chara)?clamp(d.p2chara,0,(typeof CHARA_COUNT!=='undefined'?CHARA_COUNT-1:5)):0,
    flags,
    routeTitles,
    autoFire:d.autoFire===true,
@@ -233,6 +235,7 @@ const Replay={
   G.replay=true;G.replayEnded=false;G.replayResult=d.result||'RUN';G.replaySaved=false;G.replayMsg='';
   DIFF=clamp(d.diff|0,0,DIFFS.length-1);
   G.story=!!d.story;G.oneCC=!!d.oneCC;
+  G.charaPicks[0]=d.chara|0;G.charaPicks[1]=d.p2chara|0;
   const flags=d.flags.slice(0,ROUTES.length);
   G.selFlags=new Array(ROUTES.length).fill(false);
   for(let i=0;i<flags.length;i++)G.selFlags[i]=!!flags[i];
