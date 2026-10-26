@@ -512,6 +512,10 @@ function startHostConfig(){
 }
 function updateOnline(){
  if(typeof Net==='undefined')return;
+ if(Net.pendingStart){
+  if(performance.now()>=Net.syncUntil){Net.completeStart();return;}
+  G.onlineMode='lobby';G.onlineMsg='SYNCING...';return;
+ }
  if(Net.status==='error'&&G.onlineMode!=='error')G.onlineMode='error';
  if(G.onlineMode!=='join'&&Net.codeEl&&document.activeElement===Net.codeEl)Net.codeEl.blur();
  const rows=onlineMenuRows();
@@ -541,10 +545,10 @@ function onlineActivate(k){
  if(k==='ready'){Net.localReady=!Net.localReady;Net.sendJson({t:'ready',ready:Net.localReady});sfx('ok');return;}
  if(k==='chara'){enterChara('lobby',(typeof Net!=='undefined'&&Net.isGuest)?1:0);return;}
  if(k==='run'){startHostConfig();return;}
- if(k==='deploy'){
-  if(!Net.config||!Net.ready.guest||!Net.localReady){sfx('no');return;}
-  sfx('ok');Net.startHostRun(Object.assign({},Net.config,{chara:G.charaPicks[0]|0,p2chara:Net.peerChara|0}));return;
- }
+   if(k==='deploy'){
+   if(!Net.config||!Net.ready.guest||!Net.localReady){sfx('no');return;}
+   sfx('ok');Net.startHostRun(Object.assign({},Net.config,{chara:G.charaPicks[0]|0,p2chara:Net.peerChara|0}));return;
+  }
  if(k==='leave'){sfx('cur');Net.leave();G.onlineMode='menu';return;}
 }
 function startOnlineRun(net){
@@ -574,7 +578,8 @@ function onlineCommitConfig(oneCC){
  let seed;
  try{const a=new Uint32Array(1);crypto.getRandomValues(a);seed=(a[0]&0x7fffffff)||1;}catch(e){seed=(Math.random()*0x7fffffff)|0||1;}
  let D=6;
- if(typeof Net!=='undefined'&&Net.rtt>0)D=clamp(Math.ceil(Net.rtt/16.667)+3,4,12);
+ const _rtt=(typeof Net!=='undefined')?(Net.rttP95>0?Net.rttP95:Net.rtt):0;
+ if(_rtt>0)D=clamp(Math.ceil((_rtt*0.5)/16.667)+4,4,48);
  const cfg={diff:DIFF,oneCC:!!G.oneCC,story:false,flags:flags,seed:seed,D:D,autoFire:!!autoFire,
   chara:G.charaPicks[0]|0,p2chara:(typeof Net!=='undefined'?(Net.peerChara|0):G.charaPicks[1]|0)};
  if(typeof Net!=='undefined'){Net.config=cfg;Net.sendJson({t:'config',config:cfg});}
@@ -1232,6 +1237,16 @@ function drawScreen(){
    cx.restore();
   }
   if(flashA>0){cx.globalAlpha=clamp(flashA,0,1);cx.fillStyle=flashC;cx.fillRect(0,0,W,H);cx.globalAlpha=1;}
+  if(typeof Net!=='undefined'&&Net.active&&Net.stalling&&!Gdemo){
+   const hi=Net.stallT>600;
+   cx.save();cx.fillStyle='rgba(0,0,10,.42)';cx.fillRect(0,0,W,H);
+   cx.textAlign='center';cx.textBaseline='middle';
+   cx.fillStyle=hi?UI.red:UI.cyan;cx.font='14px "Pixel8",monospace';
+   cx.fillText(hi?'HIGH LATENCY':'WAITING FOR PEER',W/2,H/2-10);
+   cx.fillStyle=UI.dim;cx.font='9px "Pixel8",monospace';
+   cx.fillText(Math.round(Net.rtt)+'MS // DELAY '+Net.D+'F',W/2,H/2+14);
+   cx.restore();
+  }
   if(G.screen==='pause')drawPause();
   if(Gdemo){
    cx.save();
@@ -1485,9 +1500,19 @@ function drawOnline(){
  const rows=onlineMenuRows();
  cx.textAlign='center';cx.textBaseline='top';
  const st=Net.status==='connecting'?'CONNECTING...':Net.status==='lobby'?'CONNECTED':Net.status==='error'?'OFFLINE':'IDLE';
- let hdr='RELAY '+st;
+ let hdr=(Net.transport==='p2p'?'P2P':'RELAY')+' '+st;
  if(Net.rtt>0)hdr+='  //  '+Math.round(Net.rtt)+'MS';
- cx.font='8px "Pixel8",monospace';cx.fillStyle=UI.dim;cx.fillText(hdr,W/2,122);
+ if(Net.D)hdr+='  //  DELAY '+Net.D+'F';
+ if(Net.region&&Net.region.country)hdr+='  //  '+Net.region.country;
+ cx.font='8px "Pixel8",monospace';cx.fillStyle=(Net.transport==='p2p'?UI.green:UI.dim);cx.fillText(hdr,W/2,122);
+ if(Net.pendingStart){
+  cx.save();cx.fillStyle='rgba(2,6,14,.74)';cx.fillRect(0,0,W,H);
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillStyle=UI.cyan;cx.font='22px "Pixel8",monospace';cx.fillText('SYNCING',W/2,H/2-12);
+  cx.fillStyle=UI.dim;cx.font='9px "Pixel8",monospace';
+  cx.fillText('ALIGNING BOTH CLIENTS // '+Math.round(Net.rtt)+'MS',W/2,H/2+18);
+  cx.restore();return;
+ }
  if(G.onlineMode==='join'){
   cx.fillStyle=UI.cyan;cx.font='10px "Pixel8",monospace';cx.fillText('ENTER ROOM CODE',W/2,146);
   const code=(G.onlineCode||'').padEnd(5,' ');
@@ -2236,6 +2261,7 @@ function frame(now){
    if(hitK(KEY.A)&&!G.replay&&!G.online){settings.autoFire=!settings.autoFire;autoFire=settings.autoFire;saveSettings();sfx("cur");}
    if(hitK(KEY.F)){settings.showFps=!settings.showFps;showFps=settings.showFps;saveSettings();}
    if(hitK(KEY.PLUS)||hitK(KEY.PERIOD)||hitK(KEY.NUMPAD_PLUS)||hitK(KEY.EQUALS)){settings.musicVol=clamp(settings.musicVol+1,0,VOL_STEPS.length-1);setMusicVol(settings.musicVol);saveSettings();}
+   if(typeof Net!=='undefined'&&Net.pendingStart&&performance.now()>=Net.syncUntil)Net.completeStart();
    if(G.screen==='play'&&G.freeze>0){G.freeze--;clearEdges();continue;}
   if(G.screen==='play'){
    if(G.replay&&!Replay.playback){Replay.endPlayback();clearEdges();continue;}

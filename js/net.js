@@ -9,13 +9,54 @@ const Net={
  ax:0,ay:0,p2ax:0,p2ay:0,analog:false,p2analog:false,focus:false,p2focus:false,
  guestFocus:false,
  localBuf:{},remoteBuf:{},myChecks:{},remoteChecks:{},
- rtt:0,pingT:0,lastPing:0,createAttempts:0,retrying:false,fatal:false,
- paused:false,pauseAt:-1,stalling:false,
+ rtt:0,rttP95:0,rttSamples:[],pingT:0,lastPing:0,createAttempts:0,retrying:false,fatal:false,
+ paused:false,pauseAt:-1,stalling:false,stallT:0,pendingStart:false,syncUntil:0,
+ region:null,peerRegion:null,p2pWanted:false,transport:'relay',pc:null,dc:null,
  _hb:0,
 
  wsOpen(){return this.ws&&this.ws.readyState===1;},
  sendJson(o){if(this.wsOpen())try{this.ws.send(JSON.stringify(o));}catch(e){}},
- wsSend(d){if(this.wsOpen())try{this.ws.send(d);}catch(e){}},
+ dcOpen(){return !!(this.dc&&this.dc.readyState==='open');},
+ dcSend(d){if(this.dcOpen())try{this.dc.send(d);return true;}catch(e){}return false;},
+ wsSend(d){if(this.dcSend(d))return;if(this.wsOpen())try{this.ws.send(d);}catch(e){}},
+ closeP2P(){try{if(this.dc)this.dc.close();}catch(e){}try{if(this.pc)this.pc.close();}catch(e){}this.dc=null;this.pc=null;this.transport='relay';},
+ maybeStartP2P(){
+  if(this.p2pWanted)return;
+  const a=this.region&&this.region.country,b=this.peerRegion&&this.peerRegion.country;
+  if(!a||!b||a!==b)return;
+  if(typeof RTCPeerConnection==='undefined')return;
+  this.p2pWanted=true;
+  if(this.isHost)this.startOffer();
+ },
+ wireDC(){
+  const dc=this.dc;
+  dc.onopen=()=>{this.transport='p2p';if(typeof G!=='undefined'&&G)G.onlineMsg='P2P LINK UP';};
+  dc.onclose=()=>{this.transport='relay';this.dc=null;if(typeof G!=='undefined'&&G)G.onlineMsg='P2P LOST // RELAY';};
+  dc.onmessage=e=>this.onMessage(e,'dc');
+ },
+ startOffer(){
+  try{
+   this.pc=new RTCPeerConnection({iceServers:NET_ICE});
+   this.dc=this.pc.createDataChannel('lasr',{ordered:false,maxRetransmits:0});
+   this.wireDC();
+   this.pc.onicecandidate=e=>{if(e.candidate)this.sendJson({t:'rtc-ice',candidate:e.candidate});};
+   this.pc.onconnectionstatechange=()=>{const s=this.pc&&this.pc.connectionState;if(s==='failed'||s==='disconnected'||s==='closed')this.closeP2P();};
+   this.pc.createOffer().then(o=>this.pc.setLocalDescription(o)).then(()=>this.sendJson({t:'rtc-offer',sdp:this.pc.localDescription})).catch(()=>this.closeP2P());
+  }catch(e){this.closeP2P();}
+ },
+ handleRTC(m){
+  try{
+   if(m.t==='rtc-offer'){
+    this.p2pWanted=true;
+    this.pc=new RTCPeerConnection({iceServers:NET_ICE});
+    this.pc.ondatachannel=e=>{this.dc=e.channel;this.wireDC();};
+    this.pc.onicecandidate=e=>{if(e.candidate)this.sendJson({t:'rtc-ice',candidate:e.candidate});};
+    this.pc.onconnectionstatechange=()=>{const s=this.pc&&this.pc.connectionState;if(s==='failed'||s==='disconnected'||s==='closed')this.closeP2P();};
+    this.pc.setRemoteDescription(m.sdp).then(()=>this.pc.createAnswer()).then(a=>this.pc.setLocalDescription(a)).then(()=>this.sendJson({t:'rtc-answer',sdp:this.pc.localDescription})).catch(()=>this.closeP2P());
+   }else if(m.t==='rtc-answer'){if(this.pc)this.pc.setRemoteDescription(m.sdp).catch(()=>{});}
+   else if(m.t==='rtc-ice'){if(this.pc)this.pc.addIceCandidate(m.candidate).catch(()=>{});}
+  }catch(e){this.closeP2P();}
+ },
 
  makeCode(){
   let s='';
@@ -62,6 +103,8 @@ const Net={
   this.ready={host:false,guest:false};this.localReady=false;this.peerChara=0;
   this.localBuf={};this.remoteBuf={};this.myChecks={};this.remoteChecks={};
   this.guestFocus=false;this.tick=0;this.sendSeq=0;this.createAttempts=0;this.retrying=false;this.fatal=false;
+  this.rttSamples=[];this.rttP95=0;this.stallT=0;this.pendingStart=false;this.syncUntil=0;this.region=null;this.peerRegion=null;
+  this.p2pWanted=false;this.closeP2P();
   if(typeof DMath!=='undefined')DMath.disable();
   if(typeof G!=='undefined'&&G){G.online=false;G.aiDialogue=settings.aiDialogue!==false;}
  },
@@ -79,9 +122,9 @@ const Net={
   }else this.status='idle';
  },
 
- onMessage(e){
+ onMessage(e,src){
   const d=e.data;
-  if(typeof d==='string'){let m;try{m=JSON.parse(d);}catch(err){return;}this.onControl(m);return;}
+  if(typeof d==='string'){let m;try{m=JSON.parse(d);}catch(err){return;}this.onControl(m,src||'ws');return;}
   let b;
   if(d instanceof ArrayBuffer)b=new Uint8Array(d);
   else if(d&&d.buffer)b=new Uint8Array(d.buffer);
@@ -91,23 +134,28 @@ const Net={
   else if(b[0]===2)this.onChecksum(b);
  },
 
- onControl(m){
+ onControl(m,src){
   switch(m.t){
+   case 'dp':if(src==='dc')this.dcSend(JSON.stringify({t:'dp2',t0:m.t0}));break;
+   case 'dp2':if(Number.isFinite(m.t0)){const r=Math.max(0,performance.now()-m.t0);this.rtt=this.rtt?this.rtt*.6+r*.4:r;this.rttSamples.push(r);if(this.rttSamples.length>24)this.rttSamples.shift();const s=this.rttSamples.slice().sort((a,b)=>a-b);this.rttP95=s[Math.min(s.length-1,Math.floor(s.length*0.95))];}break;
+   case 'rtc-offer':case 'rtc-answer':case 'rtc-ice':this.handleRTC(m);break;
    case 'hello':
     if(m.proto!==NET_PROTO){this.status='error';this.error='PROTOCOL MISMATCH';}
     break;
    case 'created':
     this.role='host';this.isHost=true;this.isGuest=false;this.code=m.code;this.status='lobby';
-    this.ready={host:false,guest:false};this.localReady=false;this.error='';
+    this.ready={host:false,guest:false};this.localReady=false;this.error='';this.region=m.region||null;
     if(typeof G!=='undefined'&&G){G.onlineMode='lobby';G.onlineCursor=0;G.onlineMsg='';}
     break;
    case 'joined':
     this.role='guest';this.isGuest=true;this.isHost=false;this.code=m.code;this.status='lobby';
-    this.ready={host:false,guest:false};this.localReady=false;this.error='';
+    this.ready={host:false,guest:false};this.localReady=false;this.error='';this.region=m.region||null;
     if(typeof G!=='undefined'&&G){G.onlineMode='lobby';G.onlineCursor=0;G.onlineMsg='';}
     break;
    case 'peer':
+    this.peerRegion=m.region||null;
     if(typeof G!=='undefined'&&G)G.onlineMsg='P2 CONNECTED';
+    this.maybeStartP2P();
     break;
    case 'config':
     this.config=m.config;this.ready={host:false,guest:false};this.localReady=false;
@@ -139,7 +187,13 @@ const Net={
     this.sendJson({t:'pong',t0:m.t0,t1:performance.now()});
     break;
    case 'pong':
-    if(Number.isFinite(m.t0)){const r=Math.max(0,performance.now()-m.t0);this.rtt=this.rtt?this.rtt*.7+r*.3:r;}
+    if(Number.isFinite(m.t0)){
+     const r=Math.max(0,performance.now()-m.t0);
+     this.rtt=this.rtt?this.rtt*.6+r*.4:r;
+     this.rttSamples.push(r);if(this.rttSamples.length>24)this.rttSamples.shift();
+     const s=this.rttSamples.slice().sort((a,b)=>a-b);
+     this.rttP95=s[Math.min(s.length-1,Math.floor(s.length*0.95))];
+    }
     break;
    case 'peer-left':
     if(this.active)this.abortRun('PEER DISCONNECTED');
@@ -216,9 +270,10 @@ const Net={
  },
 
  pump(){
+  if(this.pendingStart){if(performance.now()>=this.syncUntil)this.completeStart();return;}
   if(!this.active||this.paused)return;
   const now=performance.now();
-  if(now-this.lastPing>1000){this.lastPing=now;this.pingT=now;this.sendJson({t:'ping',t0:now});}
+  if(now-this.lastPing>1000){this.lastPing=now;this.pingT=now;this.sendJson({t:'ping',t0:now});if(this.dcOpen())this.dcSend(JSON.stringify({t:'dp',t0:now}));}
   const limit=this.tick+this.D+2;
   while(this.sendSeq<limit){const s=this.sampleLocal();this.localBuf[this.sendSeq]={mask:s.mask,ax:s.ax,ay:s.ay};this.sendInput(this.sendSeq,s.mask,s.ax,s.ay);this.sendSeq++;}
  },
@@ -245,7 +300,7 @@ const Net={
  beforeTick(){
   if(!this.active)return true;
   const li=this.localBuf[this.tick],ri=this.remoteBuf[this.tick];
-  if(!li||!ri){this.stalling=true;return false;}
+  if(!li||!ri){this.stalling=true;this.stallT++;return false;}
   delete this.localBuf[this.tick];delete this.remoteBuf[this.tick];
   let m1,m2,a1x,a1y,a2x,a2y;
   if(this.isHost){m1=li.mask;a1x=li.ax;a1y=li.ay;m2=ri.mask;a2x=ri.ax;a2y=ri.ay;}
@@ -256,7 +311,7 @@ const Net={
   this.analog=!!(m1&(1<<17));this.ax=a1x;this.ay=a1y;
   this.p2analog=!!(m2&(1<<17));this.p2ax=a2x;this.p2ay=a2y;
   this.focus=!!(m1&(1<<16));this.p2focus=!!(m2&(1<<16));
-  this.capturing=true;this.stalling=false;
+  this.capturing=true;this.stalling=false;this.stallT=0;
   if(typeof Replay!=='undefined'&&Replay.rec&&Replay.rec.online)Replay.captureNet(m1,a1x,a1y,m2,a2x,a2y);
   if(this.tick%30===0)this.sendChecksum();
   return true;
@@ -305,8 +360,18 @@ const Net={
  beginRun(config){
   this.applyConfig(config);
   this.tick=0;this.sendSeq=0;this.localBuf={};this.remoteBuf={};this.myChecks={};this.remoteChecks={};
-  this.paused=false;this.pauseAt=-1;this.stalling=false;this.capturing=false;
+  this.paused=false;this.pauseAt=-1;this.stalling=false;this.stallT=0;this.capturing=false;
   this.active=true;
+  const LEAD=1500;
+  const oneWay=this.rtt>0?this.rtt*0.5:80;
+  const delay=Math.max(200,this.isHost?LEAD:(LEAD-oneWay));
+  this.syncUntil=performance.now()+delay;
+  this.pendingStart=true;
+  if(typeof G!=='undefined'&&G){G.onlineMode='lobby';G.onlineMsg='SYNCING...';}
+ },
+ completeStart(){
+  if(!this.pendingStart)return;
+  this.pendingStart=false;this.syncUntil=0;
   if(typeof startOnlineRun==='function')startOnlineRun(this);
   else this.abortRun('START FAILED');
  },
@@ -319,7 +384,7 @@ const Net={
  abortRun(reason){
   const wasConnected=this.wsOpen();
   this.active=false;this.capturing=false;this.paused=false;this.pauseAt=-1;this.stalling=false;
-  this.localBuf={};this.remoteBuf={};
+  this.localBuf={};this.remoteBuf={};this.closeP2P();
   if(typeof DMath!=='undefined')DMath.disable();
   if(typeof Replay!=='undefined'&&Replay.rec)Replay.abort();
   if(typeof G!=='undefined'&&G){

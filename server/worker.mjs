@@ -29,7 +29,7 @@ function validateConfig(c) {
 	const oneCC = c.oneCC === true;
 	const seed = Number.isInteger(c.seed) ? c.seed | 0 : null;
 	if (seed === null) return null;
-	const D = Number.isInteger(c.D) && c.D >= 4 && c.D <= 12 ? c.D : null;
+	const D = Number.isInteger(c.D) && c.D >= 1 && c.D <= 48 ? c.D : null;
 	if (D === null) return null;
 	let flags = [];
 	if (Array.isArray(c.flags)) {
@@ -62,8 +62,23 @@ export default {
 		const role = url.searchParams.get("role") || "";
 		if (!CODE_RE.test(code) || (role !== "host" && role !== "guest"))
 			return new Response("bad code", { status: 400 });
-		const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
-		return stub.fetch(request);
+		const cf = request.cf || {};
+		const fwd = new URL(request.url);
+		fwd.searchParams.set("cc", cf.country || "");
+		fwd.searchParams.set("ct", cf.continent || "");
+		fwd.searchParams.set("co", cf.colo || "");
+		fwd.searchParams.set("rtt", String(cf.clientTcpRtt || 0));
+		const hint = {
+			NA: "enam",
+			SA: "enam",
+			EU: "weur",
+			AS: "apac",
+			OC: "oc",
+			AF: "weur",
+			AN: "oc",
+		}[cf.continent || ""];
+		const stub = hint ? env.ROOMS.get(env.ROOMS.idFromName(code), { locationHint: hint }) : env.ROOMS.get(env.ROOMS.idFromName(code));
+		return stub.fetch(new Request(fwd.toString(), request));
 	},
 };
 
@@ -93,6 +108,11 @@ export class RoomDO extends DurableObject {
 		if (p) send(p, obj);
 	}
 
+	regionOf(s) {
+		const a = s.deserializeAttachment() || {};
+		return { country: a.cc || "", continent: a.ct || "", colo: a.co || "", edgeRtt: a.rtt || 0 };
+	}
+
 	async save() {
 		try {
 			await this.ctx.storage.put("room", this.room || null);
@@ -103,11 +123,15 @@ export class RoomDO extends DurableObject {
 		const url = new URL(request.url);
 		const role = url.searchParams.get("role");
 		const code = url.searchParams.get("code");
+		const cc = url.searchParams.get("cc") || "";
+		const ct = url.searchParams.get("ct") || "";
+		const co = url.searchParams.get("co") || "";
+		const rtt = parseInt(url.searchParams.get("rtt") || "0", 10) || 0;
 		const pair = new WebSocketPair();
 		const [client, server] = Object.values(pair);
 		this.ctx.acceptWebSocket(server);
 		try {
-			server.serializeAttachment({ role, code });
+			server.serializeAttachment({ role, code, cc, ct, co, rtt });
 		} catch (e) {}
 		return new Response(null, { status: 101, webSocket: client });
 	}
@@ -153,7 +177,7 @@ export class RoomDO extends DurableObject {
 					}
 					if (!this.room) this.room = { config: null, ready: { host: false, guest: false } };
 					await this.save();
-					send(ws, { t: "created", code: att.code, role: "host" });
+					send(ws, { t: "created", code: att.code, role: "host", region: this.regionOf(ws) });
 					return;
 				}
 				if (role === "guest") {
@@ -173,9 +197,10 @@ export class RoomDO extends DurableObject {
 						} catch (e) {}
 						return;
 					}
-					send(ws, { t: "joined", code: att.code, role: "guest" });
+					send(ws, { t: "joined", code: att.code, role: "guest", region: this.regionOf(ws) });
+					send(ws, { t: "peer", role: "host", region: this.regionOf(hosts[0]) });
 					if (this.room && this.room.config) send(ws, { t: "config", config: this.room.config });
-					send(hosts[0], { t: "peer", role: "guest" });
+					send(hosts[0], { t: "peer", role: "guest", region: this.regionOf(ws) });
 					return;
 				}
 				send(ws, { t: "error", code: "bad-code" });
@@ -225,6 +250,9 @@ export class RoomDO extends DurableObject {
 				return;
 			}
 			case "pick":
+			case "rtc-offer":
+			case "rtc-answer":
+			case "rtc-ice":
 			case "pause-request":
 			case "pause-at":
 			case "resume":

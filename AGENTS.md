@@ -41,6 +41,7 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-shot.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\p2p-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\cab-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\replay-shot.js"
@@ -57,6 +58,7 @@ Expected current results:
 - Touch smoke: `37/37 PASSED`
 - `net-check.js`: `NET CHECK PASSED` for the DMath shim, host/guest input mapping, stall detection, v3 online replay validation, online screen drawing, and a two-pass seeded online run with matching state hashes.
 - `net-live-check.js`: `NET LIVE PASSED` — two VM game instances over the real relay create/join/start and advance in lockstep with matching state hashes.
+- `p2p-check.js`: `P2P CHECK PASSED` — two headless browsers against the deployed relay share a country and both reach the `p2p` transport (WebRTC). The net-check harness also covers delay sizing, the start barrier, and P2P gating/routing with a stubbed RTC peer.
 - `server-check.js`: `SERVER CHECK PASSED` for relay health, create/join, config validation, ready/start, binary relay, malformed-packet rejection, ping/pong, and disconnect cleanup.
 - `online-shot.js`: `ONLINE SHOT PASSED` at 1280x960 with no page errors; captures Online menu/join/lobby/wait/error and the title button.
 - `chara-check.js`: `CHARACTER CHECK PASSED` for the six-character roster, solo/co-op runs, finite bullets, cap compliance, and DPS spread within 1.6×.
@@ -146,6 +148,7 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 - Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, O online co-op, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.
 - Co-op P2 keyboard: WASD move, J shot, K flash, L spell, I focus. P2 keys are ignored while solo so P1 hotkeys keep working; while co-op is active P2 consumes those keys before P1.
 - Online co-op is a separate `G.screen='online'` flow (`openOnline`, `updateOnline`, `drawOnline`, `startOnlineRun`, `onlineCommitConfig`, `returnToOnlineLobby`). Rooms are 5-character codes; host=P1/guest=P2; the guest may use arrows or WASD. `Net` lives in `js/net.js` and loads after `js/replay.js` and before `js/main.js`; `NET_KEYS`/`NET_BITS` live in `js/engine.js`. Online enables `DMath` and disables AI dialogue; Standard/1CC only, no online high scores.
+- Netcode: input delay `D = clamp(ceil((p95 RTT × 0.5)/16.667)+4, 4, 48)` (raised cap) with a `~1.5 s` start barrier that aligns tick 0; a `WAITING FOR PEER`/`HIGH LATENCY` overlay replaces the silent stall freeze. When both players share a country (the relay reports `request.cf` region in `created`/`joined`/`peer`), `Net` negotiates a WebRTC `RTCDataChannel` (STUN only) and routes binary inputs/checksums peer-to-peer, falling back to the relay on ICE failure; control stays on the relay. `NET_ICE` lives in `js/netconfig.js`; the Worker relays `rtc-*` and passes a continent-based `locationHint` to the DO.
 - Controller: A shot/confirm, B flash/cancel, X spell, LB focus, Start pause; D-pad/stick navigate. Title Start/Y open Settings, View opens Help. In co-op the first pad drives P1 and the second pad drives P2. Settings → Controller handles enable, rebind, reset, and persistence.
 
 ## UI System

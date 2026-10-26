@@ -179,7 +179,10 @@ alphabet, and relay URL (override with `?server=ws://host/ws` or
 |------|----------|
 | Room codes | The host generates a 5-character code locally and connects with `?code=XXXXX&role=host`; the guest joins the same code as `role=guest`. A `busy` reply makes the host retry with a new code |
 | Roles | Host is P1, guest is P2; the guest may use arrow keys or WASD (P1+P2 layers are merged) |
-| Delay | `D = clamp(ceil(RTT / 16.667) + 3, 4, 12)`, fixed for the run and shown as the lobby ping |
+| Delay | `D = clamp(ceil((p95 RTT × 0.5) / 16.667) + 4, 4, 48)` (uses the one-way leg), fixed for the run |
+| Start | A short lead barrier (`~1.5 s`, minus one-way latency on the guest) aligns tick 0 on both clients |
+| P2P | If both players are in the **same country** (region reported by the relay), clients negotiate a WebRTC `RTCDataChannel` over the relay signaling and send inputs peer-to-peer (STUN only). Falls back to the relay on ICE failure; control stays on the relay |
+| Region | The relay reports `country`/`continent`/`colo`/edge RTT; the lobby header shows transport, ping, delay frames, and country |
 | Inputs | Each client sends its own 13-byte input packet; tick `N` runs only when both inputs exist, otherwise the client shows a stall and stops accumulating frames |
 | Pause | A barrier pauses at `max(tick) + 2D + 15`; either player can request and resume |
 | Desync | Every 30 ticks each client exchanges a state hash (RNG, score, players, boss, entity counts); any mismatch aborts to the lobby |
@@ -197,7 +200,11 @@ game, they only relay control and binary messages between the two sockets.
 | `worker.mjs` + `wrangler.toml` | Cloudflare Worker + Durable Object | Zero-cost, no-card production hosting. One SQLite-backed DO per room code, routed by name, using the WebSocket Hibernation API; room state is persisted so it survives hibernation |
 
 Both accept `/ws?code=XXXXX&role=host|guest` and expose `/health`. Codes use
-`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. See “Running the relay” for deploy steps.
+`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. The Cloudflare Worker adds the client's
+`request.cf` region to `created`/`joined`/`peer`, relays `rtc-offer`/`rtc-answer`/
+`rtc-ice` for P2P signaling, and passes a `locationHint` (from the host's
+continent) so the Durable Object lands near the players. See “Running the relay”
+for deploy steps.
 
 ### js/chara.js
 
@@ -951,6 +958,7 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-shot.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\p2p-check.js"
 ```
 
 `net-check.js` runs the deterministic math shim, host/guest input mapping,
@@ -965,7 +973,9 @@ and in-game shots for several characters.
 `net-live-check.js` runs two VM game instances through a live relay in lockstep
 and compares a state hash at a common tick; set `RELAY_URL` to point it at
 `wrangler dev` (e.g. `$env:RELAY_URL='ws://127.0.0.1:8788/ws'`) to validate the
-Cloudflare backend. `online-shot.js` captures the Online menu/join/lobby/error
+Cloudflare backend. `p2p-check.js` launches two headless browsers against the
+deployed relay (serving the repo on `localhost:8000`) and asserts both clients
+reach the peer-to-peer transport when they share a country. `online-shot.js` captures the Online menu/join/lobby/error
 screens in Edge.
 
 ### Running the relay

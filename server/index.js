@@ -27,7 +27,7 @@ function validateConfig(c){
  const oneCC=c.oneCC===true;
  const seed=Number.isInteger(c.seed)?(c.seed|0):null;
  if(seed===null)return null;
- const D=Number.isInteger(c.D)&&c.D>=4&&c.D<=12?c.D:null;
+ const D=Number.isInteger(c.D)&&c.D>=1&&c.D<=48?c.D:null;
  if(D===null)return null;
  let flags=[];
  if(Array.isArray(c.flags)){
@@ -121,6 +121,11 @@ function handleControl(ws,msg){
   case "pick":{
    if(!ws.room)break;
    relay(ws,JSON.stringify({t:"pick",chara:Number.isInteger(msg.chara)?msg.chara:0}),false);
+   break;
+  }
+  case "rtc-offer":case "rtc-answer":case "rtc-ice":{
+   if(!ws.room)break;
+   relay(ws,JSON.stringify(msg),false);
    break;
   }
   case "pause-request":{

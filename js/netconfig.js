@@ -1,6 +1,7 @@
 "use strict";
 const NET_PROTO=1;
 const NET_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const NET_ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
 const NET_CODE_RE=/^[A-HJ-NP-Z2-9]{5}$/;
 const NET_DEFAULT_URL='wss://shattered-reverie-relay.shattered-reverie.workers.dev/ws';
 const NET_URL=(()=>{
