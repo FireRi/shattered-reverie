@@ -25,17 +25,21 @@ function*haiS(b){
  let t=0;
  while(t<3200){
   if(t%170===120){
-   screenFlash(.5,'#000');sfx('warn');
+   /* dim, tinted flash instead of a full black-out */
+   screenFlash(.22,'#1a2340');sfx('warn');
    const ox=b.x(),oy=b.y();
    for(let i=0;i<2;i++)
     b.S({x:ox+(i*2-1)*24,y:oy,v:0,ang:0,g:'orb:white',r:6,keep:true,
      fn(u){if(u.t===44){
       b.ring(u.x,u.y,DN(6),DV(2.6),rnd(360),'ball:blue',{r:4});
       return false;}return true;}});
+   /* telegraph the blink landing spot so the reappear-ring is fair */
+   const tx=clamp(targetPlayer().x+rnd(-90,90),60,W-60),ty=clamp(targetPlayer().y-160,70,190);
+   addText(tx,ty,'✦','#90a0c8',26,46);fxRing(tx,ty,'#90a0c8',5,44,3,20);
    yield 26;
-   yield*b.mv(clamp(targetPlayer().x+rnd(-90,90),60,W-60),clamp(targetPlayer().y-160,70,190),12);
+   yield*b.mv(tx,ty,12);
    b.ring(b.x(),b.y(),DN(14),DV(4),b.aim(),'ball:blue',{r:5});
-   screenFlash(.35,'#88f');
+   screenFlash(.25,'#88f');
   }
   if(t%9===4)b.S({x:b.x(),y:b.y(),v:DV(2.2),ang:b.aim()+rnd(-50,50),g:'bubble:purple',r:rnd(6,11)});
   t++;yield;
@@ -139,6 +143,7 @@ function*xenoDS(b){
    addText(W/2,y+40,a+' + '+c,'#fff',12,46);
    yield 22;
    xenoDiceAttack(b,a,W/2-34,y,true);
+   yield 8;
    xenoDiceAttack(b,c,W/2+34,y,true);
    if(a===c){
     addText(W/2,y+59,'DOUBLE!','#ffd45e',18,58);
@@ -390,7 +395,9 @@ function*kokN1(b){
   if(k%66===0){
    for(let s=-1;s<=1;s+=2)
     b.S({x:b.x(),y:b.y(),v:DV(3.4),ang:b.aim()+s*70,g:'star:pink',r:6,
-     fn(u){if(u.t===44){const a=b.aim(u.x,u.y)+Math.PI;u.vx=Math.cos(a)*DV(4.6);u.vy=Math.sin(a)*DV(4.6);}return true;}});
+     fn(u){if(u.t===40)fxSpark(u.x,u.y,'#ffd0e0',8);
+      if(u.t===44){const a=b.aim(u.x,u.y)+Math.PI;fxSpark(u.x,u.y,'#fff',9);
+       u.vx=Math.cos(a)*DV(4.6);u.vy=Math.sin(a)*DV(4.6);}return true;}});
   }
   if(k%33===16)b.fan(b.x(),b.y(),DN(4),DV(3.8),30,null,'ball:pink');
   if(k%120===60){

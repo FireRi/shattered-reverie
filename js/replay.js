@@ -1,5 +1,5 @@
 "use strict";
-const REPLAY_VERSION=4,REPLAY_KEY='lasr_replay',REPLAY_MAX_BYTES=4200000;
+const REPLAY_VERSION=5,REPLAY_KEY='lasr_replay',REPLAY_MAX_BYTES=4200000;
 const REPLAY_KEYS=[KEY.LEFT,KEY.RIGHT,KEY.UP,KEY.DOWN,KEY.SHIFT,KEY.Z,KEY.X,KEY.C];
 const Replay={
  data:null,rec:null,play:null,playback:false,ax:0,ay:0,analog:false,p2ax:0,p2ay:0,p2analog:false,autoFire:null,wantP2:false,
@@ -7,7 +7,7 @@ const Replay={
   return typeof v==='string'&&v.length>0&&v.length<=max;
  },
  normalize(d){
-  if(!d||typeof d!=='object'||(d.v!==1&&d.v!==2&&d.v!==3&&d.v!==4))return null;
+  if(!d||typeof d!=='object'||(d.v!==1&&d.v!==2&&d.v!==3&&d.v!==4&&d.v!==5))return null;
   if(!Array.isArray(d.inputs)||!Array.isArray(d.rng))return null;
   const inputs=d.inputs;
   if(inputs.length<90||inputs.length%3!==0||inputs.length>5400000)return null;

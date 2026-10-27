@@ -142,7 +142,7 @@ the full game state. Visual-only randomness uses `vrnd` and is excluded.
 
 | Area | Behavior |
 |------|----------|
-| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask; format v3 adds `seed`, `online`, and `dmath` for seeded online playback; format v4 marks the projectile-telegraph timeline (curving-bullet trails, 30-frame non-spell telegraphs) |
+| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask; format v3 adds `seed`, `online`, and `dmath` for seeded online playback; format v4 marks the projectile-telegraph timeline (curving-bullet trails, 30-frame non-spell telegraphs); format v5 marks the danmaku-rehaul timeline (Sparen-principle pattern pacing, fairness cues, palette contrast) |
 | Dialogues | The four lines that appeared during the attempt are stored with the replay, so shared files keep their banter |
 | Save | `lasr_replay` stores the last completed or failed single-credit attempt (4.2 MB cap) |
 | Playback | Reconstructs the route, difficulty, mode flags, auto-fire state, and deterministic RNG; pausing is allowed but restart is blocked |
@@ -165,7 +165,7 @@ Deterministic replacements for `sin`, `cos`, `atan2`, `sqrt`, and `hypot` that
 use only arithmetic and comparisons, so two clients running the same simulation
 produce identical results across JS engines. `DMath.enable()` patches `Math` and
 `DMath.disable()` restores it. It is enabled only for online runs and for
-seeded (v3) replay playback; solo play and v1/v2 replays keep native math.
+seeded (v3+) replay playback; solo play and v1/v2 replays keep native math.
 
 ### js/net.js + js/netconfig.js
 
@@ -187,7 +187,7 @@ alphabet, and relay URL (override with `?server=ws://host/ws` or
 | Pause | A barrier pauses at `max(tick) + 2D + 15`; either player can request and resume |
 | Desync | Every 30 ticks each client exchanges a state hash (RNG, score, players, boss, entity counts); any mismatch aborts to the lobby |
 | Modes | Standard and 1CC with host-selected stage flags; Story and AI dialogue are disabled online |
-| Scores | Online runs save a v4 replay but never write a local high score |
+| Scores | Online runs save a v5 replay but never write a local high score |
 
 ### server/
 
@@ -252,6 +252,14 @@ exact canvases the 2D path already produces (`bulletSprite`, `proceduralSprite`,
 - Readability: enemy bullets are composited **on top** of the player, player
   shots, items, and effects; curving/accelerating bullets draw a 4-sample trail;
   and every non-spell boss attack enters a **30-frame telegraph** before firing.
+- Fairness/cues: silent bullet re-aims and dormant grids now flash a spark at the
+  moment they go lethal (`iyzN1`/`iyzS`, `kokN1`, `choN1`, `taiS`, `tsgN1`,
+  `empN`, `turS2`), `haiS`'s full black-out became a tinted blink with a marked
+  landing spot, `yaoS2`'s sky laser is aimed and marked, and the `brokenteam`
+  strobing black flash became a slow dim pulse.
+- Bullet palette (`COL`) was separated from pickup-item colors: teal enemy fire is
+  green-teal (distinct from the teal `O` item), and `black` bullets carry a bright
+  rim so they read on the `neg` (dark) stage.
 - Item sprites are re-baked whenever assets finish loading (`ASSETS.gen`), and
   unloaded item art renders via the 2D path until ready, so the GL and 2D paths
   never disagree (fixes the item-icon flicker). The title screen warms the item
@@ -283,6 +291,16 @@ function*myBossN1(b){
   }
 }
 ```
+
+All 44 bosses (102 attacks) follow the design vocabulary from Sparen's *Danmaku
+Design Studio*: rings, odd/even n-way spreads, n-stacks (same angle, varied
+speed), walls, aimed/fixed/changing angles, offsets and moving spawners, curved
+and accelerating bullets, and deliberate **negative space**. Patterns were
+rehauled for that vocabulary — streams were broken into discrete waves with
+off-beats (temporal density), second spawn points and timed subpatterns were
+added so groups cross in space and time, and a few explicit macrododge/skill
+elements (same-angle rings, even-n "avoid" spreads) now sit alongside the
+micro-dodge clusters. Each boss keeps its own identity mechanic.
 
 ### js/story.js
 
@@ -625,7 +643,7 @@ The guest controls P2 with arrows or `WASD` (`J` shot, `K` flash, `L` spell,
 `I` focus) and the touch pad maps to P2. Either player can request a pause;
 resuming re-primes the input delay. Story, AI boss dialogue, continues, and
 high-score writes are disabled online. If the two simulations disagree, the run
-aborts back to the lobby. A completed online run still saves a v4 replay.
+aborts back to the lobby. A completed online run still saves a v5 replay.
 
 ---
 

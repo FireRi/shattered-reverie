@@ -39,7 +39,8 @@ function*hoaS(b){
  while(true){
   const cyc=t%280;
   if(cyc===0){divDir*=-1;sfx('warn');}
-  divX=clamp(divX+divDir*(1.8+(G.simBeat||0)*.8),80,W-80);
+  /* divider speed is capped so it never outruns the player late in a long fight */
+  divX=clamp(divX+divDir*Math.min(1.8+(G.simBeat||0)*.8,7.5),80,W-80);
   if(t%3===0){
    const side=(Math.floor(t/3)%2)===0;
    const sxs=side?-14:W+14;
@@ -179,6 +180,7 @@ function*garS(b){
   if(ph===1&&t%24===0)b.fan(b.x(),b.y(),DN(6),DV(5),30,null,'kunai:red');
   if(ph===2&&t%90===0)
    spawnLaser({x:b.x(),y:b.y(),ang:b.aim()+rnd(-40,40),len:600,warm:40,dur:22,wid:14,col:'#fd5'});
+  if(t%280===264){addText(W/2,182,'…','#e8ff80',18,26);sfx('warn');}
   if(t%280===0){
    screenFlash(.12,'#e8ff80');shake(3,2);
    for(let i=0;i<3;i++){

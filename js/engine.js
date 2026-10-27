@@ -131,9 +131,9 @@ const DV=v=>v*DSCAL[DIFF].s;
 
 const COL={
  red:['#ff5060','#ffb0b8'],pink:['#ff70c0','#ffc8e8'],orange:['#ff9030','#ffd8a0'],
- yellow:['#ffe060','#fff8c0'],green:['#60ff80','#c0ffc8'],teal:['#40e0d0','#b0fff4'],cyan:['#40d0ff','#b0ecff'],
+ yellow:['#ffd21f','#fff2a0'],green:['#60ff80','#c0ffc8'],teal:['#20d6a0','#a8ffe8'],cyan:['#40d0ff','#b0ecff'],
  blue:['#6090ff','#bcd0ff'],dblue:['#4050e0','#a0b0ff'],purple:['#c060ff','#e6c0ff'],
- white:['#f8f8ff','#ffffff'],gray:['#a0a0b0','#d8d8e0'],black:['#30303c','#90909c'],
+ white:['#f8f8ff','#ffffff'],gray:['#a0a0b0','#d8d8e0'],black:['#4a4a5e','#dcdcec'],
  lime:['#b0ff30','#e8ffc0'],brown:['#c08050','#f0d0b0']
 };
 let eshots=[],pshots=[],items=[],fx=[],ftext=[],elasers=[],mobs=[];

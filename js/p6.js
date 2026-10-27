@@ -42,7 +42,7 @@ function*claS(b){
  yield*b.mv(W/2,96,45);
  let t=0,armA=rnd(360);
  while(true){
-  if(t%5===0){
+  if(t%5===0&&(t%300)<210){
    armA+=3.1;
    const rr=Math.min(t%(360*4),240)/240*W*.55+40;
    b.S({x:b.x()+Math.cos(armA)*rr,y:b.y()+Math.sin(armA)*rr*.7,v:DV(.9),ang:armA+90,g:'ball:purple',r:3,alpha:.75});
@@ -90,7 +90,7 @@ function*yaoS(b){
    screenFlash(.25,'#dfe');shake(8,4);sfx('warn');
    const slit=W/2+rnd(-90,90);
    for(let x=20;x<W;x+=40){
-    if(Math.abs(x-slit)<52)continue;
+    if(Math.abs(x-slit)<64)continue;
     spawnLaser({x,y:-10,ang:90,len:H+40,warm:44,dur:26,wid:12,col:'#8fa'});
    }
    for(let i=0;i<DN(10);i++)b.S({x:slit+rnd(-30,30),y:-12,v:DV(3.6),ang:90,g:'ball:green',r:5});
@@ -113,8 +113,12 @@ function*yaoS2(b){
    for(let i=0;i<DN(8);i++)
     b.S({x:slit+rnd(-22,22),y:-12,v:DV(4),ang:90+rnd(-5,5),g:'kunai:white'});
   }
-  if(t%120===60)
-   spawnLaser({x:rnd(20,W-20),y:-10,ang:90,len:H+40,warm:42,dur:16,wid:16,col:'#afa'});
+  if(t%120===60){
+   /* aimed + marked so the sky-laser can never spawn on an unaware player */
+   const lx=clamp(targetPlayer().x+rnd(-44,44),24,W-24);
+   addText(lx,30,'|','#afa',20,28);fxRing(lx,-8,'#afa',4,34,3,16);
+   spawnLaser({x:lx,y:-10,ang:90,len:H+40,warm:52,dur:16,wid:16,col:'#afa'});
+  }
   if(t%50===25){
    for(let i=0;i<DN(4);i++)
     b.S({x:rnd(30,W-30),y:-20,v:DV(2.5),ang:90,g:'crystal:green',r:6,acc:DV(.045),max:DV(5),
@@ -145,6 +149,7 @@ function*sarS(b){
  let t=0;
  while(t<3300){
   const ph=Math.floor(t/360)%3;
+  if(t%360===344){addText(W/2,66,'…','#8090ff',16,22);sfx('warn');}
   if(t%360===0){
    addText(W/2,66,['MIRROR','SWORD','JEWEL'][ph],'#8090ff',19,60);
    screenFlash(.14,'#8090ff');sfx('declare');
@@ -207,7 +212,7 @@ function*shiS(b){
   for(const [off,c] of heads){
    const hx=b.x()+off,hy=b.y()+10;
    if(off<0&&t%26===0)b.fan(hx,hy,DN(5),DV(4.6),36,b.aim(hx,hy),'ball:'+c,{r:4});
-   if(off===0&&t%8===0)b.S({x:hx,y:hy,v:DV(3),ang:b.aim(hx,hy)+Math.sin(t/9)*40,g:'rice:'+c,r:3,
+   if(off===0&&t%8===0&&(t%150)<102)b.S({x:hx,y:hy,v:DV(3),ang:b.aim(hx,hy)+Math.sin(t/9)*40,g:'rice:'+c,r:3,
     fn(u){u.vx+=Math.sin(u.t/13)*.05;}});
    if(off>0&&t%60===0)for(let i=0;i<DN(4);i++)b.S({x:hx,y:hy,v:DV(2.2),ang:rnd(360),g:'crystal:'+c,r:5});
   }
@@ -225,6 +230,7 @@ function*mtoN1(b){
  let k=0,pumpCycle=0;
  while(true){
   pumpCycle=k%70;
+  if(pumpCycle===0||pumpCycle===11)fxRing(b.x(),b.y(),'#ff8080',4,36,3,14);
   if(pumpCycle<4||(pumpCycle>10&&pumpCycle<14)){
    b.S({x:b.x(),y:b.y(),v:DV(3.8),ang:b.aim()+Math.sin(k/7)*28,g:'ball:red',r:4});
   }
@@ -248,7 +254,7 @@ function*mtoS(b){
  yield*b.mv(W/2,98,45);
  let t=0;
  while(true){
-  if(t%9===0){
+  if(t%9===0&&(t%200)<130){
    const lane=(t/9|0)%3;
    for(let s=0;s<2;s++){
     const seed=lane+s*1.5;
@@ -305,7 +311,8 @@ function*choS(b){
    const va=t%80===0;
    for(let i=0;i<5;i++){
     const y=60+i*((H-80)/5)+(va?0:24);
-    spawnLaser({x:va?-10:rnd(0,W),y,ang:va?0:90,len:va?W+30:200,warm:34,dur:14,wid:9,col:'#fed'});
+    /* vertical stitches use fixed columns (never on top of the player) and warm longer */
+    spawnLaser({x:va?-10:W*(i+1)/6,y,ang:va?0:90,len:va?W+30:200,warm:va?34:44,dur:14,wid:9,col:'#fed'});
    }
   }
   if(t%180===120){

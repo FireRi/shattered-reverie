@@ -98,7 +98,7 @@ function*empN(b){
     const x=40+i*((W-80)/(cols-1));
     fxSpark(x,-6,'#fff',18);
     b.S({x,y:-14,v:DV(.01),ang:90,g:'amulet:white',r:5,
-     fn(u){if(u.t===26)u.acc=DV(.06);if(u.t===44)u.max=DV(6);return true;}});
+     fn(u){if(u.t===26){u.acc=DV(.06);fxSpark(u.x,u.y,'#fff',7);}if(u.t===44)u.max=DV(6);return true;}});
    }
   }
   if(k%46===23)b.fan(b.x(),b.y(),DN(5),DV(4),36,null,'kunai:gray');
@@ -196,7 +196,7 @@ function*jinN(b){
   swirl+=5;
   if(k%2===0){
    const sa=swirl+pick([0,120,240]);
-   const rr=W*.46;
+   const rr=W*.40;
    b.S({x:b.x()+Math.cos(sa)*rr,y:b.y()+Math.sin(sa)*rr*.6,v:DV(1),ang:sa+180,g:'amulet:gray',r:5,
     fn(u){
      if(u.t<80){const inw=(u.t/80)*DV(3);u.vx=Math.cos((sa+180)*Math.PI/180)*inw+Math.cos(u.t/9)*1.1;u.vy=Math.sin((sa+180)*Math.PI/180)*inw*.7;}
@@ -255,19 +255,20 @@ function*yabN(b){
 }
 function*yabS(b){
  yield*b.mv(W/2,92,45);
- let t=0;
+ let t=0,wGap=W/2;
  while(t<3100){
   if(t%170===0){
    sfx('warn');screenFlash(.1,'#dccbaa');
-   const gap=clamp(targetPlayer().x+rnd(-48,48),42,W-42);
-   addText(gap,26,'world A','#fff',10,44);
+   wGap=clamp(targetPlayer().x+rnd(-48,48),42,W-42);
+   addText(wGap,26,'world A','#fff',10,44);
    for(let x=10;x<W;x+=22){
-    if(Math.abs(x-gap)<42)continue;
+    if(Math.abs(x-wGap)<42)continue;
     b.S({x,y:-14,v:DV(3.4),ang:90,g:'ball:white',r:4});
    }
   }
   if(t%170===46){
-   const gap=clamp(targetPlayer().x+rnd(-48,48),42,W-42);
+   /* world B shares world A's gap so the two walls can never contradict */
+   const gap=wGap;
    addText(gap,H-30,'world B','#aaa',10,44);
    for(let x=10;x<W;x+=22){
     if(Math.abs(x-gap)<42)continue;
@@ -342,7 +343,7 @@ function*turS2(b){
     const a=rnd(360);
     for(let s=-2;s<=2;s++){
      const bl=b.S({x:b.x(),y:b.y(),v:DV(5.2),ang:a+s*10,g:'kunai:white',seed:s,
-      fn(u){if(u.t===30){const aa=(b.aim(u.x,u.y)+ (u.seed||0))*Math.PI/180;u.vx=Math.cos(aa)*DV(6.4);u.vy=Math.sin(aa)*DV(6.4);}return true;}});
+      fn(u){if(u.t===30){fxSpark(u.x,u.y,'#fff',7);const aa=(b.aim(u.x,u.y)+ (u.seed||0))*Math.PI/180;u.vx=Math.cos(aa)*DV(6.4);u.vy=Math.sin(aa)*DV(6.4);}return true;}});
     }
     fxSlash(b.x(),b.y(),a,1.2);sfx('laser');
    }
@@ -355,7 +356,7 @@ function*turS3(b){
  let t=0;
  while(true){
   if(t%200===40){
-   screenFlash(.3,'#000');sfx('warn');shake(8,4);
+   screenFlash(.16,'#1a1a26');sfx('warn');shake(8,4);
    for(let w=0;w<3;w++){
     const bx=rnd(70,W-70),by=rnd(60,H*.5);
     fxRing(bx,by,'#000',4,34,6,26);
@@ -426,6 +427,7 @@ function*suxS(b){
    screenFlash(.2,'#fdf');sfx('graze');
    b.ring(b.x(),b.y(),DN(16),DV(3.6),rnd(360),'star:pink',{r:6});
   }
+  if(t%40===20)b.fan(b.x(),b.y(),DN(5),DV(3.8),44,null,'kunai:red');
   if(t%260===230)yield*b.mv(rnd(120,W-120),100,34);
   t++;yield;
  }
@@ -457,7 +459,8 @@ function*shrS1(b){
  yield*b.mv(W/2,84,44);
  let t=0;
  while(t<3000){
-  screenFlash(.05,'#000');
+  /* slow dim pulse instead of a per-frame black strobe (accessibility) */
+  if(t%90===0)screenFlash(.1,'#0a0a12');
    if(t%14===0){
     const dark=rnd()<.55;
     b.S({x:rnd(0,W),y:-12,v:DV(4.2),ang:90+rnd(-10,10),g:dark?'ball:black':'ball:white',r:5});
@@ -495,9 +498,9 @@ function*shrS3(b){
   if(t%140===0){
    sfx('warn');
    for(let i=0;i<DN(8);i++){
-    const px=rnd(30,W-30),py=rnd(50,H*.5);
+    const px=rnd(30,W-30),py=rnd(50,H*.5),delay=i*6;
     b.S({x:px,y:py,v:DV(.01),ang:0,g:'orb:white',r:10,
-     fn(u){if(u.t===50){fxRing(u.x,u.y,'#fff',10,90,5,22);
+     fn(u){if(u.t===50+delay){fxRing(u.x,u.y,'#fff',10,90,5,22);
       for(let q=0;q<DN(8);q++)b.S({x:u.x,y:u.y,v:DV(3.4),ang:q*360/DN(8)+rnd(6),g:'ball:white',r:4});
       return false;}return true;}});
    }

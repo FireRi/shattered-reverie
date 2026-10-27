@@ -23,7 +23,8 @@ function*kuroN1(b){
  while(true){
   wake.push([b.x(),b.y()]);
   if(wake.length>78)wake.shift();
-  if(k%7===0){
+  /* coil pair pulses in waves: 140f on, 56f off for breathing room */
+  if(k%7===0&&(k%196)<140){
    a+=17;
    for(const dir of [0,180]){
     const ang=a+dir;
@@ -117,7 +118,7 @@ function*kuroS(b){
 function*junN1(b){
  let r=0,gust=1;
  while(true){
-  if(r%4===0)gust*=-1;
+  if(r%4===0){gust*=-1;fxRing(b.x(),b.y(),'#a0c8e0',4,38,3,16);}
   yield*b.mv(clamp(W/2+gust*rnd(60,140),100,W-100),90+rnd(-15,25),30);
   for(let i=0;i<DN(12);i++){
    const curve=(i%2?1:-1)*(20+i%3*14);
@@ -232,7 +233,8 @@ function*souS(b){
     b.S({x:cx+Math.cos(aa*Math.PI/180)*350,y:cy+Math.sin(aa*Math.PI/180)*300,
      v:DV(1.7),ang:aa+180,g:i%2?'star:pink':'star:red',r:4,av:6,dur:150});
    }
-   fxRing(cx,cy,'#ffb0d8',6,92,4,30);sfx('warn');
+   fxRing(cx,cy,'#ffb0d8',6,92,4,30);screenFlash(.12,'#ffd0e8');sfx('warn');
+   addText(cx,cy-96,'▼','#ffb0d8',20,40);
   }
   if(t%48===24)b.fan(b.x(),b.y(),DN(5),DV(3.6),30,null,'ball:red');
   t++;yield;
@@ -244,6 +246,11 @@ function*mitN1(b){
  let k=0,spin=1;
  yield*b.mv(90,105,36);
  while(true){
+  /* drop a stationary segment burst before crawling away: two spawn points interact */
+  if(k%150===0){
+   addText(b.x(),b.y()+30,'segment','#c0a0e0',10,30);
+   b.ring(b.x(),b.y(),DN(9),DV(2.4),rnd(360),'ball:green',{r:5});
+  }
   if(k%150===75)yield*b.mv(k%300===75?W-90:90,rnd(85,125),36);
   if(k%18===0){
    for(let col=0;col<3;col++)
@@ -304,10 +311,18 @@ function*aojN1(b){
  let a=0,k=0;
  yield*b.mv(W/2,110,40);
  while(true){
-  if(k%4===0){a+=11;
+  /* spiral pair runs in waves so the whirlpool breathes instead of streaming */
+  if(k%4===0&&(k%132)<84){a+=11;
    b.S({x:b.x(),y:b.y(),v:DV(2.9),ang:a,g:'ball:blue'});
    b.S({x:b.x(),y:b.y(),v:DV(2.9),ang:a+180,g:'ball:teal'});
    b.S({x:b.x(),y:b.y(),v:DV(3.4),ang:-a*1.4+90,g:'rice:white',r:3});}
+  /* burst off the pause: same-angle ring (macrododge) */
+  if(k%132===84){
+   for(let i=0;i<DN(12);i++)
+    b.S({x:b.x()+Math.cos(i*30*Math.PI/180)*46,y:b.y()+Math.sin(i*30*Math.PI/180)*30,
+     v:DV(2.4),ang:i*30+90,g:'ball:blue',r:5});
+   fxRing(b.x(),b.y(),'#90b8e8',5,52,3,20);
+  }
   if(k%5===0){
    for(const s of [-1,1]){
     const aa=k*4+s*90;
@@ -380,7 +395,7 @@ function*shoN1(b){
   k++;yield;
  }
 }
-function*shoS(b){
+function*shoStageS(b){
  yield*b.mv(W/2,100,45);
  let t=0;
  while(true){
@@ -420,8 +435,8 @@ function*tsgN1(b){
    /* speed-line trail: rice bullets stop mid-air, then fire at where player WAS */
    const px=targetPlayer().x,py=targetPlayer().y;
    b.S({x:b.x(),y:b.y(),v:DV(7),ang:left?10:170,g:'rice:yellow',keep:true,
-    fn(u){if(u.t===26){u.vx=0;u.vy=0;u.keep=true;}
-     if(u.t===44){const aa=b.aim(u.x,u.y)*Math.PI/180;u.vx=Math.cos(aa)*DV(5.2);u.vy=Math.sin(aa)*DV(5.2);u.keep=false;}
+    fn(u){if(u.t===26){u.vx=0;u.vy=0;u.keep=true;fxSpark(u.x,u.y,'#ffe860',7);}
+     if(u.t===44){const aa=b.aim(u.x,u.y)*Math.PI/180;u.vx=Math.cos(aa)*DV(5.2);u.vy=Math.sin(aa)*DV(5.2);u.keep=false;fxSpark(u.x,u.y,'#fff',8);}
      if(u.x<-20||u.x>W+20)return false;}});
    yield 14;
   }
@@ -464,7 +479,8 @@ function*tsgS2(b){
  let t=0,a=0;
  while(t<3400){
   a+=9.4;
-  if(t%2===0){
+  /* twin spiral winds for 120f then rests 60f so the spin reads as a rhythm */
+  if(t%2===0&&(t%180)<120){
    b.S({x:b.x(),y:b.y(),v:DV(3.4),ang:a,g:'kunai:orange'});
    b.S({x:b.x(),y:b.y(),v:DV(3.4),ang:-a,g:'kunai:yellow'});
   }
@@ -637,7 +653,7 @@ function*lumS(b){
     for(let s=0;s<4;s++)
      b.S({x:b.x(),y:b.y(),v:DV(2+s*1.5),ang:ga+ray*360/DN(10),g:s%2?'ball:yellow':'orb:white',r:s%2?4:7});
   }
-  if(t%7===0)b.ring(b.x(),b.y(),DN(4),DV(2),t*13,'ball:white',{r:3});
+  if(t%7===0&&(t%180)<126)b.ring(b.x(),b.y(),DN(4),DV(2),t*13,'ball:white',{r:3});
   t++;yield;
  }
 }
@@ -671,7 +687,8 @@ function*iyzN1(b){
   for(let i=0;i<cols;i++){
    if(i===gap)continue;
    soldiers.push(b.S({x:40+i*((W-80)/(cols-1)),y:-14,v:DV(2.4),ang:90,g:'amulet:gray',r:5,
-    fn(u){if(u.t===46){u.vx=0;u.vy=0;}if(u.t===74){const a=b.aim(u.x,u.y)*Math.PI/180;
+    fn(u){if(u.t===46){u.vx=0;u.vy=0;fxSpark(u.x,u.y,'#bcd0ff',7);}
+     if(u.t===74){const a=b.aim(u.x,u.y)*Math.PI/180;fxSpark(u.x,u.y,'#ffffff',8);
      u.vx=Math.cos(a)*DV(4.6);u.vy=Math.sin(a)*DV(4.6);}
      if(u.y>H-26&&!u.rev){u.rev=true;u.vx=0;u.vy=-DV(3.4);u.g='amulet:white';
       fxSpark(u.x,u.y,'#bcd0ff',12);}
@@ -882,7 +899,7 @@ registerBoss('jun','Amayui',['#4a6a8a','#a0c8e0'],12,144,[{l:230,t:60,p:junN1},{
 registerBoss('souko','Sumika Haneya',['#8a4a6a','#e0a0c0'],13,146,[{l:235,t:60,p:souN1},{n:'Charm “Petal-Sealing Bloom”',col:'#e0a0c0',l:60,t:60,p:souS}]);
 registerBoss('mitsumo','Hyakurei Soko',['#6a4a7a','#c0a0e0'],14,142,[{l:245,t:60,p:mitN1},{n:'Dread “Hundred-Legged Nightmare”',col:'#c0a0e0',l:62,t:60,p:mitS}]);
 registerBoss('aoji','Uzuma Sen',['#3a5a8a','#90b8e8'],21,150,[{l:250,t:60,p:aojN1},{n:'Maelstrom “Descending Whirlpool”',col:'#90b8e8',l:64,t:60,p:aojS}]);
-registerBoss('shou','Oboro Nume',['#6a5a4a','#cab89a'],22,138,[{l:255,t:60,p:shoN1},{n:'Trigger “Slug Crossroads”',col:'#cab89a',l:64,t:60,p:shoS}]);
+registerBoss('shou','Oboro Nume',['#6a5a4a','#cab89a'],22,138,[{l:255,t:60,p:shoN1},{n:'Trigger “Slug Crossroads”',col:'#cab89a',l:64,t:60,p:shoStageS}]);
 registerBoss('tsugumi','Hayakaze Rin',['#8a8a3a','#e8e89a'],23,168,[{l:260,t:60,p:tsgN1},{n:'Valkyrie “Full-Throttle Dash”',col:'#e8e89a',l:66,t:60,p:tsgS},{n:'Tusk — “Endless Spin”',col:'#ffe860',l:70,t:60,p:tsgS2}]);
 registerBoss('medias','Hakuseki Mira',['#4a4a7a','#a0a0d8'],24,152,[{l:260,t:60,p:medN1},{n:'Zero Friction “Glass Highway”',col:'#a0a0d8',l:68,t:60,p:medS}]);
 registerBoss('kujiru','Numeko Miyako',['#5a7a4a','#b8d89a'],25,134,[{l:265,t:60,p:kujN1},{n:'“Metropolis of Slime”',col:'#b8d89a',l:70,t:60,p:kujS}]);

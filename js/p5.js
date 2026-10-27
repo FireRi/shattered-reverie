@@ -4,7 +4,8 @@ function*kurN1(b){
  let k=0,a=rnd(360);
  while(k<330){
   a+=7;
-  if(k%8===0){
+  /* twin helix pulses in waves so it reads as a wingbeat, not a stream */
+  if(k%8===0&&(k%170)<124){
    for(const s of [-1,1]){
     const aa=(a*s+90)*Math.PI/180;
     b.S({x:b.x()+Math.cos(aa)*26,y:b.y()+Math.sin(aa)*18,v:DV(2.8),ang:aa*180/Math.PI+90,
@@ -45,6 +46,14 @@ function*sukN1(b){
      fn(u){if(u.t===46){fxBurst(u.x,u.y,'#c85',10,4);fxRing(u.x,u.y,'#c85',6,54,4,18);
       b.ring(u.x,u.y,DN(10),DV(2.6),rnd(360),'ball:brown',{r:5});return false;}return true;}});
    }
+  /* even 4-way bracket: bullets deliberately straddle the player (avoid-spread) */
+  if(k%112===28){
+   const aa=b.aim();
+   for(let i=0;i<4;i++){
+    const off=(i<2?-1:1)*(11+(i%2)*27);
+    b.S({x:b.x(),y:b.y(),v:DV(3.6),ang:aa+off,g:'orb:brown',r:6});
+   }
+  }
   if(k%112===56){
    const px=clamp(targetPlayer().x+rnd(-60,60),30,W-30);
    fxRing(px,H-12,'#c85',4,28,2,24);
@@ -63,10 +72,11 @@ function*sukS(b){
   if(t%90===0)
    b.S({x:b.x(),y:b.y(),v:DV(4.4),ang:b.aim(),g:'orb:brown',r:11,
     fn(u){
+     if(u.t===32)fxRing(u.x,u.y,'#ea8',5,44,3,16);
      if(u.t===40){
       fxRing(u.x,u.y,'#c85',8,70,5,20);shake(4,2);
-      for(let i=0;i<DN(8);i++)
-       b.S({x:u.x,y:u.y,v:DV(3.4),ang:i*360/DN(8)+rnd(8),g:'orb:brown',r:7,
+      for(let i=0;i<DN(6);i++)
+       b.S({x:u.x,y:u.y,v:DV(3.4),ang:i*360/DN(6)+rnd(8),g:'orb:brown',r:7,
         fn(v){if(v.t===30){fxBurst(v.x,v.y,'#ea8',8,3);
          b.ring(v.x,v.y,DN(6),DV(2),rnd(360),'ball:brown',{r:4});return false;}return true;}});
       return false;}
@@ -117,6 +127,7 @@ function*taiS(b){
      fn(u){const R=60+((u.t*1.4)%60);const a=(a0-u.t*.8)*Math.PI/180;
       u.x=b.x()+Math.cos(a)*R;u.y=b.y()+Math.sin(a)*R;
       if(u.t===80||u.t===200||u.t===320){
+       fxRing(u.x,u.y,'#e8e8f0',3,26,2,14);
        for(let s=-1;s<=1;s++)
         b.S({x:u.x,y:u.y,v:DV(2.8),ang:b.aim(u.x,u.y)+s*10,g:'rice:gray',r:3});
       }

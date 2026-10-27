@@ -7,7 +7,7 @@ function bulletSprite(fam,bc,color,fxOn){
  const key=fam+'|'+bc+'|'+(fxOn?1:0);
  if(_bulletSprCache.has(key))return _bulletSprCache.get(key);
  let img=null,haloCol=color,elong=false,highlight=false;
- if(fam==='shadow'){img=ASSETS.th_shadowbullet;haloCol='#606070';elong=true;}
+ if(fam==='shadow'){img=ASSETS.th_shadowbullet;haloCol='#c0c0d4';elong=true;}
  else if(fam==='ball'){img=thImg('ball',bc);highlight=true;}
  else if(fam==='orb'){img=ASSETS['orb_'+TH_COLOR[bc]];}
  else if(fam==='rice'||fam==='ah'){img=thImg(fam,bc);elong=true;}
