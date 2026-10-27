@@ -64,7 +64,7 @@ function defaultDialog(def){return getBossBanter(def);}
 function startBoss(def,onDone){
  BOSS={def,name:def.name,col:def.col,x:W/2,y:-60,tx:W/2,ty:110,idx:-1,state:'enter',t:0,warnT:96,
   timer:0,hp:0,maxHp:0,hpDisp:1,atk:null,gen:null,rate:.07,dying:0,onDone,moveT:0,idleA:rnd(TAU),
-  cutin:0,cutinName:'',cutinCol:def.col,spellActive:false,leftInRoute:def.leftInRoute||1,
+  cutin:0,warm:0,cutinName:'',cutinCol:def.col,spellActive:false,leftInRoute:def.leftInRoute||1,
   dlg:defaultDialog(def),
   dgi:0,dShown:0,dT:0,musicPhase:0};
  clearBullets(true);
@@ -89,8 +89,9 @@ function bossNextAttack(){
  }
  clearBullets(true);
  G.spellBombUsed=false;
- BOSS.gen=A.n?null:A.p(bossCtx(BOSS));
- BOSS.x=W/2;BOSS.y=110;BOSS.moveT=0;
+ BOSS.gen=null;BOSS.x=W/2;BOSS.y=110;BOSS.moveT=0;
+ if(A.n){BOSS.warm=0;}
+ else{BOSS.warm=30;fxRing(BOSS.x,BOSS.y,BOSS.col[0],8,70,3,24);screenFlash(.1,'#fff');}
  addText(W/2,200,A.n?('Spell Card — '+A.n):(BOSS.def.name),'#fff',A.n?22:16,70);
 }
 function startBossDeath(){
@@ -209,6 +210,12 @@ function bossUpdate(){
    BOSS.cutin--;
    if(BOSS.hurtT>0)BOSS.hurtT--;
    if(BOSS.cutin<=0&&BOSS.atk&&!BOSS.gen)BOSS.gen=BOSS.atk.p(bossCtx(BOSS));
+   return;
+  }
+  if(BOSS.warm>0){
+   BOSS.warm--;
+   if(BOSS.hurtT>0)BOSS.hurtT--;
+   if(BOSS.warm<=0&&BOSS.atk&&!BOSS.gen)BOSS.gen=BOSS.atk.p(bossCtx(BOSS));
    return;
   }
   if(BOSS.timer>0){BOSS.timer--;if(BOSS.timer===0)bossAttackEnd(false);}

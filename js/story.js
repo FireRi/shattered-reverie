@@ -20,6 +20,7 @@ const STORY_FORMATIONS=[
 ];
 const STORY_POWER_QUOTA=100; /* 1.0 power */
 const STORY_P_VALUE=8; /* matches addPower(8) per P item */
+const STORY_LANES=5;
 
 function nearestMobTo(x,y){
  let best=null,bd=Infinity;
@@ -184,8 +185,9 @@ function buildStoryWave(){
 function startStoryWave(){
  if(G.wave||BOSS)return;
  const layout=buildStoryWave();
- G.wave={queue:layout.queue,name:layout.name,gap:layout.gap,maxAlive:layout.maxAlive,
-  idx:0,spawnT:10,startPower:PL.power,powerSpawned:0,kills:0};
+  G.wave={queue:layout.queue,name:layout.name,gap:layout.gap,maxAlive:layout.maxAlive,
+   idx:0,spawnT:10,startPower:PL.power,powerSpawned:0,kills:0,
+   lane:irnd(0,STORY_LANES-1),dir:PL.x<W/2?1:-1};
  addText(W/2,180,'STORY WAVE // '+layout.name,'#8fdfff',20,70);
  const _r=ROUTES[G.routeQueue[G.routeIdx]];
  if(_r)startStageBgm(_r);
@@ -194,15 +196,22 @@ function updateStoryWave(){
  const w=G.wave;
  if(!w)return;
  if(BOSS){G.wave=null;return;}
- if(w.idx<w.queue.length){
-  w.spawnT--;
-  if(w.spawnT<=0&&mobs.length<w.maxAlive){
-   const kind=w.queue[w.idx++];
-   spawnMob(kind,rnd(60,W-60),-20);
-   w.spawnT=w.gap;
-   if(w.idx===1){addText(W/2,220,'INCOMING!','#ffd700',22,60);sfx('warn');}
-  }
- }else if(mobs.length===0){
+  if(w.idx<w.queue.length){
+   w.spawnT--;
+   if(w.spawnT<=0&&mobs.length<w.maxAlive){
+    const kind=w.queue[w.idx++];
+    /* Toaplan-style lanes: step to a lane on the opposite side, occasionally reverse. */
+    const step=1+irnd(0,1);
+    if(w.lane===undefined){w.lane=irnd(0,STORY_LANES-1);w.dir=PL.x<W/2?1:-1;}
+    w.lane=(w.lane+w.dir*step+STORY_LANES*2)%STORY_LANES;
+    if(rnd()<.3)w.dir*=-1;
+    const laneW=(W-120)/STORY_LANES;
+    const x=clamp(60+laneW*(w.lane+.5)+rnd(-10,10),50,W-50);
+    spawnMob(kind,x,-20);
+    w.spawnT=w.gap;
+    if(w.idx===1){addText(W/2,220,'INCOMING!','#ffd700',22,60);sfx('warn');}
+   }
+  }else if(mobs.length===0){
   const gained=PL.power-w.startPower,quota=storyQuota(w);
   G.wave=null;G.needWave=false;
   G.score+=25000;

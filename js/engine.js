@@ -256,9 +256,10 @@ function spawnE(o){
  const b=epool.pop();
  if(b!==undefined)eReused++;
  const s=b||{};
- s.fn=null;s.keep=false;
+ s.fn=null;s.keep=false;s.th=null;
  Object.assign(s,{g:'ball',c:'white',x:0,y:0,v:2,ang:90,r:5,acc:0,max:-1,t:0,grazed:false,hit:true,
-  av:0,end:null,dur:0,spin:vrnd(TAU),alpha:1},o);
+  av:0,end:null,dur:0,spin:vrnd(TAU),alpha:1,trail:0},o);
+ if((s.fn||s.av||s.acc)&&!s.trail)s.trail=1;
  if(!o.fast)s.v=Math.min(s.v||2,8.5);
  if(!isFinite(s.v))s.v=2;
  if(!isFinite(s.x))s.x=W/2; if(!isFinite(s.y))s.y=-20;
@@ -291,6 +292,11 @@ function eUpdate(){
    }
   }
   b.x+=mx;b.y+=my;
+  if(b.trail){
+   let th=b.th;
+   if(!th){th=b.th=[];for(let k=0;k<4;k++)th.push({x:b.x,y:b.y});}
+   else{for(let k=3;k>0;k--){th[k].x=th[k-1].x;th[k].y=th[k-1].y;}th[0].x=b.x;th[0].y=b.y;}
+  }
   if(b.x<-48||b.x>W+48||b.y<-48||b.y>H+48){if(!b.keep||b.t>240){killE(i);continue;}}
  }
 }

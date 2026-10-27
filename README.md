@@ -142,7 +142,7 @@ the full game state. Visual-only randomness uses `vrnd` and is excluded.
 
 | Area | Behavior |
 |------|----------|
-| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask; format v3 adds `seed`, `online`, and `dmath` for seeded online playback |
+| Capture | 60 Hz mask for movement, shot, flash, spell, focus, touch stick/focus, auto-fire, and pad edges; format v2 adds an optional per-frame P2 mask; format v3 adds `seed`, `online`, and `dmath` for seeded online playback; format v4 marks the projectile-telegraph timeline (curving-bullet trails, 30-frame non-spell telegraphs) |
 | Dialogues | The four lines that appeared during the attempt are stored with the replay, so shared files keep their banter |
 | Save | `lasr_replay` stores the last completed or failed single-credit attempt (4.2 MB cap) |
 | Playback | Reconstructs the route, difficulty, mode flags, auto-fire state, and deterministic RNG; pausing is allowed but restart is blocked |
@@ -187,7 +187,7 @@ alphabet, and relay URL (override with `?server=ws://host/ws` or
 | Pause | A barrier pauses at `max(tick) + 2D + 15`; either player can request and resume |
 | Desync | Every 30 ticks each client exchanges a state hash (RNG, score, players, boss, entity counts); any mismatch aborts to the lobby |
 | Modes | Standard and 1CC with host-selected stage flags; Story and AI dialogue are disabled online |
-| Scores | Online runs save a v3 replay but never write a local high score |
+| Scores | Online runs save a v4 replay but never write a local high score |
 
 ### server/
 
@@ -249,6 +249,9 @@ exact canvases the 2D path already produces (`bulletSprite`, `proceduralSprite`,
 - Measured on a software renderer: `drawEntities` at 1,500 bullets drops from
   ~21.7 ms to ~9 ms/frame; see the temp `render-bench.js` / `gfx-fidelity.js`
   harnesses.
+- Readability: enemy bullets are composited **on top** of the player, player
+  shots, items, and effects; curving/accelerating bullets draw a 4-sample trail;
+  and every non-spell boss attack enters a **30-frame telegraph** before firing.
 
 ### js/patterns.js + js/p4–pexa.js
 
@@ -618,7 +621,7 @@ The guest controls P2 with arrows or `WASD` (`J` shot, `K` flash, `L` spell,
 `I` focus) and the touch pad maps to P2. Either player can request a pause;
 resuming re-primes the input delay. Story, AI boss dialogue, continues, and
 high-score writes are disabled online. If the two simulations disagree, the run
-aborts back to the lobby. A completed online run still saves a v3 replay.
+aborts back to the lobby. A completed online run still saves a v4 replay.
 
 ---
 
@@ -957,6 +960,7 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-live-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\readability-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\p2p-check.js"
 ```

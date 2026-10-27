@@ -98,6 +98,10 @@ const GfxGL=(function(){
   if(!src)return false;
   const cell=addSource(src);
   if(!cell)return false;
+  if(b.trail&&b.th){
+   const A=[.5,.3,.14],S=[.72,.5,.32];
+   for(let k=0;k<3;k++){const p=b.th[k+1];if(!p)break;pushInst(cell,p.x,p.y,size*S[k],rot,(b.alpha??1)*A[k],o);}
+  }
   pushInst(cell,b.x,b.y,size,rot,(b.alpha??1),o);
   return true;
  }
@@ -239,5 +243,5 @@ const GfxGL=(function(){
   return true;
  }
  function available(){if(ok)return true;if(tried)return false;tried=true;return init();}
- return {init,available,renderAll};
+ return {init,available,renderBullets,renderShotsItems};
 })();

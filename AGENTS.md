@@ -10,7 +10,7 @@ This file is the persistent operating context for coding sessions. Keep it curre
 - **Canvas:** Fixed internal resolution `640x480`, scaled uniformly by `js/boot.js`.
 - **Repository:** `https://github.com/FireRi/shattered-reverie.git`, branch `main`.
 - **Last feature commit:** `a721736 Add local two-player co-op` (pushed); prior replay/performance work `5efd057`, controller work `b838466`, cabinet/danmaku work `25d59e0`.
-- **Working tree:** room-code online co-op (deterministic lockstep, host=P1/guest=P2) plus `js/net.js`, `js/netconfig.js`, `js/dmath.js`, and the `server/` relays. Standard/1CC only; Story and AI dialogue off online; online runs save a v3 replay but write no high score. Relay backends: Node `ws` (`server/index.js`, local/self-host) and Cloudflare Worker + SQLite Durable Object (`server/worker.mjs` + `wrangler.toml`, free/no-card production). The host now generates the 5-char room code client-side; both clients connect to `/ws?code=XXXXX&role=host|guest`. Needs the relay running and `?server=`/`NET_URL` set.
+- **Working tree:** room-code online co-op (deterministic lockstep, host=P1/guest=P2) plus `js/net.js`, `js/netconfig.js`, `js/dmath.js`, and the `server/` relays. Standard/1CC only; Story and AI dialogue off online; online runs save a v4 replay but write no high score. Relay backends: Node `ws` (`server/index.js`, local/self-host) and Cloudflare Worker + SQLite Durable Object (`server/worker.mjs` + `wrangler.toml`, free/no-card production). The host now generates the 5-char room code client-side; both clients connect to `/ws?code=XXXXX&role=host|guest`. Needs the relay running and `?server=`/`NET_URL` set.
 - **Previous feature:** playable local co-op (2P) across input, player lifecycle, boss targeting, HUD, items, game-over/results, gamepad, and replay.
 - **Legacy working-tree noise:** line-ending-only changes in `.gitignore`, `CREDITS.md`, `assets/sfx/readme_EN.txt`, `assets/sfx/readme_JP.txt`, `fonts/OFL.txt`, and `fonts/VT323-OFL.txt`; stale untracked `DOCUMENTATION.md`. Do not stage these.
 
@@ -40,6 +40,7 @@ node "C:\Users\Gabby\AppData\Local\Temp\opencode\net-live-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\server-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\online-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-check.js"
+node "C:\Users\Gabby\AppData\Local\Temp\opencode\readability-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\chara-shot.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\p2p-check.js"
 node "C:\Users\Gabby\AppData\Local\Temp\opencode\shot.js"
@@ -62,6 +63,7 @@ Expected current results:
 - `server-check.js`: `SERVER CHECK PASSED` for relay health, create/join, config validation, ready/start, binary relay, malformed-packet rejection, ping/pong, and disconnect cleanup.
 - `online-shot.js`: `ONLINE SHOT PASSED` at 1280x960 with no page errors; captures Online menu/join/lobby/wait/error and the title button.
 - `chara-check.js`: `CHARACTER CHECK PASSED` for the six-character roster, solo/co-op runs, finite bullets, cap compliance, and DPS spread within 1.6×.
+- `readability-check.js`: `READABILITY CHECK PASSED` — every non-spell telegraphs (30f warm), every spell has a cutin, curving/accelerating bullets get trails, and a spawn-near-player heuristic is clean across all 44 bosses.
 - `chara-shot.js`: `CHARA SHOT PASSED`; captures the selection screen (solo/co-op/touch/portrait) and in-game shots for several characters.
 - `controller-check.js`: desktop and touch `17/17 PASSED` with a mocked standard pad; covers held/edge keys, non-standard axis pairs, context mapping, enable/disable, remap capture, bind suppression, hotplug cleanup, persistence, and controller-screen drawing.
 - `coop-check.js`: `CO-OP PASSED` for title toggle/persistence, P2 activation/spawn, isolated movement/shooting, nearest-player items, one-player-down continuation, both-down game over, route revive, 2P replay record/playback, second-pad ownership, and co-op HUD drawing.
@@ -99,7 +101,7 @@ js/engine.js     constants, IS_TOUCH, input, pools, shared state, SimRng, TouchU
 js/dmath.js      deterministic sin/cos/atan2/sqrt/hypot shim for online/seeded replay
 js/chara.js      6 playable characters: shot types, option layouts, speeds, aim
 js/gamepad.js    Gamepad API bridge, padKeys/padEdge, remap + persistence
-js/replay.js     deterministic input/RNG replay, save, JSON import/export, v3 seed/online
+js/replay.js     deterministic input/RNG replay, save, JSON import/export, v4 seed/online
 js/netconfig.js  NET_PROTO, NET_URL, room alphabet
 js/net.js        room-code online co-op lockstep client (input relay, checksums, pause barrier)
 js/audio.js      Web Audio buses, SFX synthesis, volume persistence
@@ -142,7 +144,8 @@ All game scripts live in `js/`. `index.html` stays at the repository root; `api/
 - Screens include: `title`, `diff`, `sel`, `settings`, `controller`, `replay`, `help`, `play`, `pause`, `gameover`, `result`, `demo`.
 - Story mode uses waves and three credits; 1CC and Story 1CC use one credit and a full route. Continue/retry spend credits; pause restart also spends a credit and invalidates 1CC.
 - Save keys include `lasr_hi`, `lasr_hi_0`–`lasr_hi_2` (per-difficulty), `lasr_diff` (0–2), `lasr_sel` (stage flags), `lasr_chara`/`lasr_p2chara` (character picks), `lasr_settings`, `lasr_mute`, `lasr_mvol`, `lasr_svol`, `lasr_gamepad`, and `lasr_replay`.
-- Rendering: `js/gfxgl.js` batches enemy bullets, player shots, and items as WebGL instanced quads into an offscreen canvas, then one `drawImage` blit, when WebGL+instancing is available and ≥64 projectiles are on screen; otherwise `render.js` uses the Canvas 2D loops. Sprites are atlas-minted from the 2D canvases; sampling is NEAREST and the 2D projectile path sets `imageSmoothingEnabled=false`. Tainted/unavailable GL falls back to 2D. Rendering only — sim/replay/online unaffected. Collision hot paths use y-band early-out and squared distances (`js/player.js`, `js/engine.js`).
+- Rendering: `js/gfxgl.js` batches enemy bullets (and player shots + items) as WebGL instanced quads into an offscreen canvas, blitted with `drawImage` when WebGL+instancing is available and ≥64 projectiles are on screen; otherwise `render.js` uses the Canvas 2D loops. Sprites are atlas-minted from the 2D canvases; sampling is NEAREST and the 2D projectile path sets `imageSmoothingEnabled=false`. Tainted/unavailable GL falls back to 2D. `drawEntities` draws **enemy bullets on top** of the player/shots/items/fx, and curving/accelerating bullets draw a 4-sample trail. Collision hot paths use y-band early-out and squared distances. Rendering is sim-neutral.
+- Readability/timeline: non-spell boss attacks get a **30-frame telegraph** (`BOSS.warm` in `js/boss.js`) before generating; spells keep the 110-frame cutin. This changes the tick timeline, so `REPLAY_VERSION` is **v4** (v1–v3 still load, but pre-v4 replays may diverge). Story uses Toaplan-style lane spawns (`STORY_LANES` in `js/story.js`). `readability-check.js` asserts every non-spell telegraphs and every curving bullet trails across all 44 bosses.
 - Playable characters live in `js/chara.js` (`CHARAS`, `CHARAS[i].fire(p,pint)`, `optStyle`/`optCount`, `move`/`focus`). Six archetypes: Suzuran (homing), Kurogane (needle/shotgun), Kagenui (piercing laser), Hibari (spread), Kaede (angled), Yomogi (missile). `G.charaPicks` carries both slots; `startRun`/`startOnlineRun` apply them, `lasr_chara`/`lasr_p2chara` persist. Shot type is recorded in replay (`chara`/`p2chara`) and exchanged online (config + `pick`). `pierce`/shotgun-falloff/angled-aim are handled in `engine.js`/`chara.js`.
 - Boss dialogue is a four-line boss/player/boss/player exchange. Every boss ID has a local profile in `js/dialogue.js`; AI output from `/api/generate-dialog` is prefetched, cached per boss, and ignored if it arrives after the exchange starts. Failures and missing keys always fall back to local banter. The endpoint requires `GROQ_API_KEY`; `GROQ_MODEL` optionally overrides the preferred 70B model.
 - Keyboard: arrows move, Shift focus, Z shoot/confirm, C spell, X flash, Esc pause/back, R pause at restart/retry stage, S settings, H help, V replay, O online co-op, A autofire, F show FPS, M mute, `-`/`+` music. Title `2` toggles co-op.
@@ -190,9 +193,9 @@ The current visual direction is neon sci-fi arcade with an 8-bit/CRT finish. Kee
 
 In progress (online co-op, uncommitted):
 
-- Added `js/dmath.js` (deterministic `sin`/`cos`/`atan2`/`sqrt`/`hypot`, `enable`/`disable`, enabled only online and for seeded v3 replay), `js/netconfig.js`, `js/net.js`, the `server/` Node `ws` relay (`server/index.js`, `package.json`, `Dockerfile`), and the Cloudflare Worker + Durable Object adapter (`server/worker.mjs`, `server/wrangler.toml`). The host generates the 5-char code client-side and connects to `/ws?code=XXXXX&role=host|guest` (both backends); `busy` triggers a retry with a new code.
+- Added `js/dmath.js` (deterministic `sin`/`cos`/`atan2`/`sqrt`/`hypot`, `enable`/`disable`, enabled only online and for seeded v3/v4 replay), `js/netconfig.js`, `js/net.js`, the `server/` Node `ws` relay (`server/index.js`, `package.json`, `Dockerfile`), and the Cloudflare Worker + Durable Object adapter (`server/worker.mjs`, `server/wrangler.toml`). The host generates the 5-char code client-side and connects to `/ws?code=XXXXX&role=host|guest` (both backends); `busy` triggers a retry with a new code.
 - `js/engine.js` adds `NET_KEYS`/`NET_BITS` and routes `down`/`hitK`/`downP`/`hitP` through `Net` while `Net.capturing`; `KEY.O` added.
-- `js/main.js` adds `G.simFrame`/`G.simBeat` (gameplay tick separate from visual `G.frame`), gates `G.freeze` to play, adds the online screen/flow, `startOnlineRun`, `onlineCommitConfig`, `returnToOnlineLobby`, and online results handling; `js/player.js`/`js/p4.js` use the sim tick and Net analog/focus; `js/replay.js` is format v3 with `seed`/`online`/`dmath`; `js/boot.js` maps guest touch to P2; `js/cabinet.js` adds the `ONLINE`/ping flags; `index.html` loads the new scripts and adds the hidden room-code input.
+- `js/main.js` adds `G.simFrame`/`G.simBeat` (gameplay tick separate from visual `G.frame`), gates `G.freeze` to play, adds the online screen/flow, `startOnlineRun`, `onlineCommitConfig`, `returnToOnlineLobby`, and online results handling; `js/player.js`/`js/p4.js` use the sim tick and Net analog/focus; `js/replay.js` is format v4 with `seed`/`online`/`dmath` (v3 accepted); `js/boot.js` maps guest touch to P2; `js/cabinet.js` adds the `ONLINE`/ping flags; `index.html` loads the new scripts and adds the hidden room-code input.
 - Verified with `net-check.js` (`NET CHECK PASSED`), `server-check.js` (`SERVER CHECK PASSED`), `online-shot.js` (`ONLINE SHOT PASSED`), and the desktop/touch smoke, replay, co-op, controller, all-boss, xeno, and music harnesses.
 - Not yet done: real two-browser playtest, Northflank deploy + `NET_URL`, and any commit.
 

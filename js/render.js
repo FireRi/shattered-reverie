@@ -68,6 +68,13 @@ function proceduralSprite(g,bc,col,fxOn){
  return cv;
 }
 function drawBullet(b){
+ if(b.trail&&b.th){
+  const tc=(COL[b.c]||COL.white)[0];
+  const A=[.5,.3,.14],S=[.72,.5,.32];
+  cx.save();cx.globalCompositeOperation='lighter';
+  for(let k=0;k<3;k++){const p=b.th[k+1];if(!p)break;cx.globalAlpha=(b.alpha??1)*A[k];cx.fillStyle=tc;cx.beginPath();cx.arc(p.x,p.y,(b.r||5)*S[k],0,TAU);cx.fill();}
+  cx.restore();
+ }
  const c=COL[b.c]||COL.white,fxOn=perfLevel>0;
  const grow=Math.min(1,.35+b.t*.16);
  const angD=Math.atan2(b.vy,b.vx)*180/Math.PI;
@@ -432,20 +439,25 @@ function drawEntities(){
    cx.restore();cx.lineCap='butt';}
  }
  drawMobs();
- const glCount=eshots.length+pshots.length+items.length;
- const handled=(typeof GfxGL!=='undefined')&&glCount>=64&&GfxGL.available()&&GfxGL.renderAll(eshots,pshots,items);
- if(!handled){
+ const shotsTotal=pshots.length+items.length;
+ const handledShots=(typeof GfxGL!=='undefined')&&shotsTotal>=64&&GfxGL.available()&&GfxGL.renderShotsItems(pshots,items);
+ if(!handledShots){
   cx.save();cx.imageSmoothingEnabled=false;
-  for(const b of eshots){
-   if(b.x<-30||b.x>W+30||b.y<-30||b.y>H+30)continue;
-   drawBullet(b);
-  }
   for(const b of pshots)drawPShot(b);
   for(const it of items)drawItem(cx,it);
   cx.restore();
  }
  for(const p of players)drawPlayer(p);
  for(const f of fx)drawFx(f);
+ const handledBullets=(typeof GfxGL!=='undefined')&&eshots.length>=64&&GfxGL.available()&&GfxGL.renderBullets(eshots);
+ if(!handledBullets){
+  cx.save();cx.imageSmoothingEnabled=false;
+  for(const b of eshots){
+   if(b.x<-30||b.x>W+30||b.y<-30||b.y>H+30)continue;
+   drawBullet(b);
+  }
+  cx.restore();
+ }
  for(const t of ftext){
   const p=t.life/t.max;
   const popIn=Math.min(1,(1-p)*6+.4);
