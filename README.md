@@ -252,6 +252,10 @@ exact canvases the 2D path already produces (`bulletSprite`, `proceduralSprite`,
 - Readability: enemy bullets are composited **on top** of the player, player
   shots, items, and effects; curving/accelerating bullets draw a 4-sample trail;
   and every non-spell boss attack enters a **30-frame telegraph** before firing.
+- Item sprites are re-baked whenever assets finish loading (`ASSETS.gen`), and
+  unloaded item art renders via the 2D path until ready, so the GL and 2D paths
+  never disagree (fixes the item-icon flicker). The title screen warms the item
+  and player-shot atlas via `GfxGL.warm()`.
 
 ### js/patterns.js + js/p4–pexa.js
 

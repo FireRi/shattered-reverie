@@ -145,7 +145,7 @@ function addText(x,y,s,c='#fff',sz=14,life=45,vy=-0.7){if(ftext.length<40)ftext.
 function fxRing(x,y,c,r0=6,r1=60,w=3,life=24){if(fx.length<300)fx.push({t:'ring',x,y,c,r0,r1,w,life,max:life});}
 function fxBurst(x,y,c,n=10,sp=4){for(let i=0;i<n;i++){if(fx.length>=300)break;const a=vrnd(TAU);fx.push({t:'p',x,y,vx:Math.cos(a)*vrnd(sp*.3,sp),vy:Math.sin(a)*vrnd(sp*.3,sp),c,life:virnd(14,26),max:26});}}
 function fxSpark(x,y,c,life=12){if(fx.length<300)fx.push({t:'spark',x,y,c,life,max:life});}
-const ASSETS={};
+const ASSETS={gen:0};
 const SFX_FILES={pshot:'gun13_a',bossHit:'hit_s',bomb:'bom20_a',death:'bom26_c',bossDie:'bom28_b',
  item:'power01_b',extend:'power04',spellget:'power02',capture:'power03',
  cur:'cursor00_a',ok:'cursor01',no:'cursor03',warn:'alarm00'};
@@ -200,7 +200,7 @@ function loadAssets(){
   'jellybeanblue','jellybeanorange','jellybeanpurple','jellybeangreen','jellybeancyan',
   'shadowbullet','staryellow','sunflower','purpleflower','feather'];
  for(const f of th){
-  const im=new Image();im.onload=()=>{ASSETS['th_'+f]=im;};im.src='gfx/ttdm/bullets/hostile/'+f+'.png';
+  const im=new Image();im.onload=()=>{ASSETS['th_'+f]=im;ASSETS.gen++;};im.src='gfx/ttdm/bullets/hostile/'+f+'.png';
  }
  const rest=[['seal_red','bullets/player/sealred'],['seal_blue','bullets/player/sealblue'],['seal_green','bullets/player/sealgreen'],
   ['item_P','entities/items/power'],['item_B','entities/items/point'],['item_L','entities/items/life'],['item_S','entities/items/bomb'],
@@ -213,7 +213,7 @@ function loadAssets(){
   ['spellbg_s1','backgrounds/stage1_spellcard'],['spellbg_s2','backgrounds/stage2_lake_spellcard'],['spellbg_s4','backgrounds/stage2_cirno_spellcard'],
   ['spellbg_s6','backgrounds/stage3_meiling_spellcard']];
  for(const [k,f] of rest){
-  const im=new Image();im.onload=()=>{ASSETS[k]=im;};im.src='gfx/ttdm/'+f+'.png';
+  const im=new Image();im.onload=()=>{ASSETS[k]=im;ASSETS.gen++;};im.src='gfx/ttdm/'+f+'.png';
  }
 }
 const TH_COLOR={red:'red',blue:'blue',dblue:'purple',purple:'purple',teal:'cyan',cyan:'cyan',green:'green',yellow:'yellow',orange:'orange'};

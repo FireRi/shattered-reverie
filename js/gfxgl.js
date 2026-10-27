@@ -125,9 +125,14 @@ const GfxGL=(function(){
   bakeCache.set(key,cv);
   return cv;
  }
+ let bakeGen=-1;
  function bakeItem(type){
   if(typeof drawItem!=='function'||typeof document==='undefined')return null;
-  const key='i|'+type;
+  const gen=ASSETS.gen||0;
+  if(gen!==bakeGen){bakeCache.clear();bakeGen=gen;}
+  const spr={P:'item_P',B:'item_B',L:'item_L',S:'item_S'}[type];
+  if(spr&&!ASSETS[spr])return null; /* asset still loading: let the caller render it in 2D */
+  const key='i|'+type+'|'+gen;
   let cv=bakeCache.get(key);
   if(cv)return cv;
   cv=document.createElement('canvas');cv.width=cv.height=32;
@@ -140,7 +145,7 @@ const GfxGL=(function(){
  }
  function renderShotsItems(sh,its){
   if(!ok)return false;
-  const o={n:0};
+  const o={n:0};const fb=[];
   for(let k=0;k<sh.length;k++){
    const b=sh[k];
    if(b.x<-24||b.x>W+24||b.y<-32||b.y>H+32)continue;
@@ -154,14 +159,15 @@ const GfxGL=(function(){
    const it=its[k];
    if(it.x<-14||it.x>W+14||it.y<-16||it.y>H+16)continue;
    const cell=addSource(bakeItem(it.t));
-   if(!cell)continue;
+   if(!cell){fb.push(it);continue;} /* asset not loaded yet */
    const a=(it.ground&&it.life<120&&Math.floor(G.frame/5)%2===0)?.35:1;
    pushInst(cell,it.x,it.y,isz,0,a,o);
   }
   if(!ok){cx.save();cx.imageSmoothingEnabled=false;for(let k=0;k<sh.length;k++)drawPShot(sh[k]);for(let k=0;k<its.length;k++)drawItem(cx,its[k]);cx.restore();return true;}
-  if(o.n===0)return true;
+  if(o.n===0&&fb.length===0)return true;
   gl.viewport(0,0,W,H);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-  lastN=o.n;draw();blit();
+  lastN=o.n;if(lastN)draw();blit();
+  if(fb.length){cx.save();cx.imageSmoothingEnabled=false;for(let k=0;k<fb.length;k++)drawItem(cx,fb[k]);cx.restore();}
   return true;
  }
  function bindAttrib(loc,size,stride,offset,divisor){
@@ -206,42 +212,12 @@ const GfxGL=(function(){
   if(fb.length){cx.save();cx.imageSmoothingEnabled=false;for(let k=0;k<fb.length;k++)drawBullet(fb[k]);cx.restore();}
   return true;
  }
- function renderAll(list,sh,its){
-  if(!ok)return false;
-  const o={n:0};const fb=[];
-  for(let k=0;k<list.length;k++){
-   const b=list[k];
-   if(b.x<-30||b.x>W+30||b.y<-30||b.y>H+30)continue;
-   if(o.n>=MAX)break;
-   if(!pushBullet(b,o))fb.push(b);
-  }
-  for(let k=0;k<sh.length;k++){
-   const b=sh[k];
-   if(b.x<-24||b.x>W+24||b.y<-32||b.y>H+32)continue;
-   const cell=addSource(bakePShot(b.type,b.col||'#9cf',b.own===1,b.pierce));
-   if(cell)pushInst(cell,b.x,b.y,64,Math.atan2(b.vy,b.vx)+Math.PI/2,1,o);
-  }
-  const pulse=15+2*Math.sin(G.frame/9);const isz=32*(pulse/15);
-  for(let k=0;k<its.length;k++){
-   const it=its[k];
-   if(it.x<-14||it.x>W+14||it.y<-16||it.y>H+16)continue;
-   const cell=addSource(bakeItem(it.t));
-   if(cell)pushInst(cell,it.x,it.y,isz,0,(it.ground&&it.life<120&&Math.floor(G.frame/5)%2===0)?.35:1,o);
-  }
-  if(!ok){
-   cx.save();cx.imageSmoothingEnabled=false;
-   for(let k=0;k<list.length;k++){const b=list[k];if(b.x<-30||b.x>W+30||b.y<-30||b.y>H+30)continue;drawBullet(b);}
-   for(let k=0;k<sh.length;k++)drawPShot(sh[k]);
-   for(let k=0;k<its.length;k++)drawItem(cx,its[k]);
-   cx.restore();
-   return true;
-  }
-  if(fb.length){cx.save();cx.imageSmoothingEnabled=false;for(let k=0;k<fb.length;k++)drawBullet(fb[k]);cx.restore();}
-  if(o.n===0)return true;
-  gl.viewport(0,0,W,H);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
-  lastN=o.n;draw();blit();
-  return true;
+ function warm(){
+  if(!ok)return;
+  for(const t of ['P','B','L','S','K','O']){const c=bakeItem(t);if(c)addSource(c);}
+  for(const type of ['shot','homing','amulet','needle','lance','knife','missile','scatter'])
+   for(let own=0;own<2;own++)for(let pi=0;pi<2;pi++){const c=bakePShot(type,'#9cf',own,pi);if(c)addSource(c);}
  }
  function available(){if(ok)return true;if(tried)return false;tried=true;return init();}
- return {init,available,renderBullets,renderShotsItems};
+ return {init,available,renderBullets,renderShotsItems,warm};
 })();

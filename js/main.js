@@ -328,6 +328,7 @@ function menuNav(len,cur){
 function updateMenus(){
  switch(G.screen){
   case 'title':
+   if(typeof GfxGL!=='undefined'&&GfxGL.warm&&GfxGL.available())GfxGL.warm();
    G.idleT=(G.idleT||0)+1;
    if(G.idleT>900&&!Gdemo){startDemo();break;}
    if(hitK(KEY.Z)||hitK(KEY.ENTER)){sfx('ok');G.screen='diff';G.idleT=0;}
